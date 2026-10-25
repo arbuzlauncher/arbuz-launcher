@@ -126,6 +126,8 @@ export interface Config {
   showConsole: boolean;
   /** Проверять обновления лаунчера на GitHub при запуске. */
   checkLauncherUpdates: boolean;
+  /** «Ускоритель лаунчера»: локальный прокси с разбиением TLS ClientHello. */
+  launcherAccel: boolean;
   /** Закрытие окна прячет лаунчер в трей. */
   closeToTray: boolean;
   hideEmpty: boolean;
@@ -207,7 +209,7 @@ export interface Shot {
 
 /** Вид контента в каталоге (ТЗ §10). */
 export type CatalogKind = 'mod' | 'dp' | 'rp' | 'pk' | 'sh';
-export type CatalogSource = 'modrinth' | 'curseforge';
+export type CatalogSource = 'modrinth' | 'curseforge' | 'ftb';
 
 /** Аргументы поиска по каталогу (совпадают с `catalog::SearchArgs`). */
 export interface SearchArgs {

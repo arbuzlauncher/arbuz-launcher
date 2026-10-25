@@ -1,7 +1,8 @@
 use crate::models::Config;
 use crate::paths;
 use std::collections::HashMap;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{oneshot, Mutex};
 
@@ -16,6 +17,8 @@ pub struct AppState {
     /// считался между опросами, а не с нуля.
     pub monitor: std::sync::Mutex<sysinfo::System>,
     pub ms_cancel: AtomicBool,
+    /// Включён ли «Ускоритель лаунчера» (локальный прокси с фрагментацией).
+    pub launcher_accel: Arc<AtomicBool>,
 }
 
 impl AppState {
@@ -23,21 +26,46 @@ impl AppState {
         // Общий таймаут запроса здесь недопустим: client.jar весит ~40 МБ и
         // на медленном канале качается дольше 30 секунд. Ограничиваем только
         // установку соединения и паузу между чтениями тела ответа.
-        let http = reqwest::Client::builder()
+        let cfg = load_config();
+        let accel = crate::accelerator::start(cfg.launcher_accel);
+        let launcher_accel = accel.enabled.clone();
+
+        let mut builder = reqwest::Client::builder()
             .user_agent("ArbuzLauncher/1.0")
             .connect_timeout(Duration::from_secs(30))
             .read_timeout(Duration::from_secs(60))
-            .pool_max_idle_per_host(16)
+            .pool_max_idle_per_host(16);
+
+        if accel.port != 0 {
+            let url = format!("http://127.0.0.1:{}", accel.port);
+            let token = accel.token;
+            let enabled = accel.enabled.clone();
+            let proxy = reqwest::Proxy::custom(move |target| {
+                if enabled.load(Ordering::Relaxed)
+                    && target.scheme() == "https"
+                    && target.port_or_known_default() == Some(443)
+                {
+                    Some(url.clone())
+                } else {
+                    None
+                }
+            })
+            .basic_auth("arbuz", &token);
+            builder = builder.proxy(proxy);
+        }
+
+        let http = builder
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
 
         Self {
             http,
-            config: Mutex::new(load_config()),
+            config: Mutex::new(cfg),
             running: Mutex::new(HashMap::new()),
             game_pids: Mutex::new(HashMap::new()),
             monitor: std::sync::Mutex::new(sysinfo::System::new()),
             ms_cancel: AtomicBool::new(false),
+            launcher_accel,
         }
     }
 }

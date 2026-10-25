@@ -350,6 +350,8 @@ pub struct Config {
     pub show_console: bool,
     /// Проверять обновления самого лаунчера на GitHub.
     pub check_launcher_updates: bool,
+    /// «Ускоритель лаунчера»: локальный прокси с разбиением первого TLS-пакета.
+    pub launcher_accel: bool,
     /// Закрытие окна прячет лаунчер в трей, а не выходит.
     pub close_to_tray: bool,
     pub hide_empty: bool,
@@ -404,6 +406,7 @@ impl Default for Config {
             close_on_launch: false,
             show_console: true,
             check_launcher_updates: true,
+            launcher_accel: false,
             close_to_tray: true,
             hide_empty: false,
             mod_isolation_enabled: false,
@@ -437,6 +440,10 @@ impl Config {
                 | "sr" | "sk" | "ja" | "tg" | "uz" | "ky" | "lt" | "lv" | "iu" | "kk" | "olb" | "ka"
         ) {
             self.lang = "ru".into();
+        }
+        // Ускоритель имеет смысл только в русской и английской версии UI.
+        if self.lang != "ru" && self.lang != "en" {
+            self.launcher_accel = false;
         }
         if !matches!(self.mod_isolation_level.as_str(), "min" | "std" | "strict") {
             self.mod_isolation_level = "min".into();

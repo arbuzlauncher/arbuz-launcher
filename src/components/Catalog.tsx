@@ -32,7 +32,7 @@ const SORTS: [string, string][] = [
   ['updated', 'Обновлённые'],
 ];
 
-const SOURCE_LABEL: Record<string, string> = { modrinth: 'Modrinth', curseforge: 'CurseForge' };
+const SOURCE_LABEL: Record<string, string> = { modrinth: 'Modrinth', curseforge: 'CurseForge', ftb: 'FTB' };
 
 /** Сколько результатов показывать на одной странице. */
 const PAGE = 20;
@@ -159,6 +159,11 @@ export function Catalog() {
       useStore.getState().set({ tgt: instances[0].id });
     }
   }, [tgt, instances]);
+
+  // FTB отдаёт только сборки: не оставляем активной вкладку модов.
+  useEffect(() => {
+    if (src === 'FTB' && bt !== 'pk') useStore.getState().set({ bt: 'pk' });
+  }, [src, bt]);
 
   /** Один запрос каталога. `offset` — смещение выбранной страницы. */
   const run = useCallback(async (offset: number) => {
@@ -401,7 +406,7 @@ export function Catalog() {
         <div className="lb">{t('Каталог')}</div>
         <div className="ttl">{src}</div>
         <div className="tabs">
-          {KINDS.map(([k, l]) => (
+          {KINDS.filter(([k]) => src !== 'FTB' || k === 'pk').map(([k, l]) => (
             <div
               key={k}
               className={'tab' + (bt === k ? ' on' : '')}
@@ -416,12 +421,17 @@ export function Catalog() {
       <div className="pg" ref={pgRef}>
         <div className="row g8" style={{ marginBottom: 16 }}>
           <div className="seg">
-            {['Modrinth', 'CurseForge'].map((x) => (
+            {['Modrinth', 'CurseForge', 'FTB'].map((x) => (
               <button
                 key={x}
                 type="button"
                 className={src === x ? 'on' : ''}
-                onClick={() => useStore.getState().set({ src: x })}
+                onClick={() =>
+                  useStore.getState().set({
+                    src: x,
+                    ...(x === 'FTB' ? { bt: 'pk' } : {}),
+                  })
+                }
               >
                 {x}
               </button>
@@ -491,10 +501,14 @@ export function Catalog() {
                 </option>
               ))}
             </select>
-            <h3>{t('Категория')}</h3>
-            {CATS.map((c) => (
-              <Check key={c} on={bc.includes(c)} label={t(c)} onClick={() => toggleCat(c)} />
-            ))}
+            {src !== 'FTB' && (
+              <>
+                <h3>{t('Категория')}</h3>
+                {CATS.map((c) => (
+                  <Check key={c} on={bc.includes(c)} label={t(c)} onClick={() => toggleCat(c)} />
+                ))}
+              </>
+            )}
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -603,7 +617,7 @@ export function Catalog() {
                         className="btn sm"
                         onClick={() => void openUrl(l.url).catch((e) => useStore.getState().toastMsg(String(e)))}
                       >
-                        {l.label}
+                        {t(l.label)}
                       </button>
                     ))}
                   </div>

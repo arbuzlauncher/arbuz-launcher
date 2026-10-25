@@ -117,6 +117,9 @@ pub async fn get_config(state: State<'_, AppState>) -> Res<Config> {
     let mut guard = state.config.lock().await;
     let cfg = read_config().await?;
     *guard = cfg.clone();
+    state
+        .launcher_accel
+        .store(cfg.launcher_accel, std::sync::atomic::Ordering::Relaxed);
     // Ключ CurseForge в webview не отдаём — только признак «задан».
     let mut shown = cfg;
     if !shown.curseforge_api_key.is_empty() {
@@ -139,6 +142,9 @@ pub async fn set_config(state: State<'_, AppState>, mut cfg: Config) -> Res<()> 
         };
     }
     store::write_json_atomic(&paths::config_file(), &cfg).await?;
+    state
+        .launcher_accel
+        .store(cfg.launcher_accel, std::sync::atomic::Ordering::Relaxed);
     *guard = cfg;
     Ok(())
 }
@@ -173,6 +179,9 @@ pub async fn import_settings(state: State<'_, AppState>, path: String) -> Res<Co
     // Визард знакомства после импорта не нужен.
     cfg.onboarded = true;
     store::write_json_atomic(&paths::config_file(), &cfg).await?;
+    state
+        .launcher_accel
+        .store(cfg.launcher_accel, std::sync::atomic::Ordering::Relaxed);
     *state.config.lock().await = cfg.clone();
     Ok(cfg)
 }

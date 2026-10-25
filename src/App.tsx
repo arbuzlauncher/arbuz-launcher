@@ -46,6 +46,15 @@ export default function App() {
     applyDirection(lang);
   }, [lang]);
 
+  // Ускоритель оставляем только в русском и английском интерфейсе.
+  useEffect(() => {
+    if (lang === 'ru' || lang === 'en') return;
+    const st = useStore.getState();
+    if (st.config.launcherAccel) {
+      void st.setConfig({ ...st.config, launcherAccel: false });
+    }
+  }, [lang]);
+
   // Обновления лаунчера: один раз за запуск, если включено в настройках.
   useEffect(() => {
     if (!onboarded || !checkAppUpd) return;

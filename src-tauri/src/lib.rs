@@ -1,4 +1,5 @@
 mod accounts;
+mod accelerator;
 mod ai;
 mod benchmark;
 mod builder;
@@ -7,6 +8,7 @@ mod commands;
 mod content;
 mod crash;
 mod error;
+mod ftb;
 mod gamedir;
 mod http;
 mod java;

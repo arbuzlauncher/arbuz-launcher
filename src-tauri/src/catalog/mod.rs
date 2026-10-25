@@ -212,6 +212,7 @@ pub(crate) fn strip_html(s: &str) -> String {
 pub async fn project(state: &AppState, source: &str, id: &str) -> Res<ProjectDetails> {
     match source {
         "curseforge" => curseforge::project(state, id).await,
+        "ftb" => crate::ftb::project(state, id).await,
         _ => modrinth::project(&state.http, id).await,
     }
 }
@@ -270,6 +271,7 @@ pub async fn search(state: &AppState, args: SearchArgs) -> Res<SearchResult> {
     let mut res = match args.source.as_str() {
         "modrinth" => modrinth::search(&state.http, &args).await?,
         "curseforge" => curseforge::search(state, &args).await?,
+        "ftb" => crate::ftb::search(state, &args).await?,
         _ => return err("Неизвестный источник"),
     };
 

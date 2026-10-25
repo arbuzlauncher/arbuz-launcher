@@ -28,7 +28,7 @@ fn resolve() -> PathBuf {
         }
     }
     if let Some(dir) = beside_exe() {
-        if !in_appdata(&dir) && writable(&dir) {
+        if !in_appdata(&dir) && !in_program_files(&dir) && writable(&dir) {
             return dir;
         }
     }
@@ -59,6 +59,18 @@ fn beside_exe() -> Option<PathBuf> {
 fn in_appdata(dir: &Path) -> bool {
     let s = dir.to_string_lossy().to_ascii_lowercase();
     s.contains("\\appdata\\") || s.contains("/appdata/")
+}
+
+/// `Program Files` может быть доступен на запись от администратора, но данные
+/// там всё равно не место: при установке «для всех» уводим их в профиль.
+fn in_program_files(dir: &Path) -> bool {
+    let s = dir.to_string_lossy().to_ascii_lowercase();
+    ["PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432"]
+        .iter()
+        .filter_map(|key| std::env::var_os(key))
+        .filter(|value| !value.is_empty())
+        .map(|value| PathBuf::from(value).to_string_lossy().to_ascii_lowercase())
+        .any(|root| s == root || s.starts_with(&(root + "\\")))
 }
 
 /// Проверяем пробным файлом: права на запись не угадать по метаданным.
@@ -243,6 +255,18 @@ mod tests {
         )));
         assert!(!in_appdata(Path::new(r"D:\Games\arbuz-launcher")));
         assert!(!in_appdata(Path::new(r"C:\Users\me\arbuz-launcher")));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn program_files_is_not_portable() {
+        let root = std::env::var_os("PROGRAMFILES").unwrap_or_default();
+        if root.is_empty() {
+            return;
+        }
+        let dir = PathBuf::from(root).join("Arbuz Launcher");
+        assert!(in_program_files(&dir));
+        assert!(!in_program_files(Path::new(r"D:\Games\arbuz-launcher")));
     }
 
     #[test]

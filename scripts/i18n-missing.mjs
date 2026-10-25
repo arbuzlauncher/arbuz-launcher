@@ -6,12 +6,13 @@ const text = fs.readFileSync('src/lib/i18n.ts', 'utf8');
 const start = text.indexOf('const EN: Table = {');
 const end = text.indexOf('\n};', start);
 const block = text.slice(start, end);
-const re = /(?:^|\n)\s*'((?:[^'\\]|\\.)*)'\s*:\s*'((?:[^'\\]|\\.)*)',?/g;
+const re =
+  /(?:^|\n)\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")\s*:\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g;
 const en = new Set();
 let m;
-while ((m = re.exec(block))) en.add(m[1]);
+while ((m = re.exec(block))) en.add(m[1] ?? m[2]);
 
-const un = (s) => s.replace(/\\(\\|'|n)/g, (_, c) => (c === 'n' ? '\n' : c));
+const un = (s) => s.replace(/\\(\\|'|"|n)/g, (_, c) => (c === 'n' ? '\n' : c));
 const used = new Map();
 const files = [];
 function walk(dir) {

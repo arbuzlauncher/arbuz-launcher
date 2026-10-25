@@ -153,7 +153,13 @@ export function UpdatesTab({ inst }: { inst: Instance }) {
         <div className="panel" style={{ padding: 14, marginTop: 14 }}>
           <div className="row g8" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ minWidth: 0 }}>
-              <b>{inst.pack.source === 'curseforge' ? t('Сборка CurseForge') : t('Сборка Modrinth')}</b>
+              <b>
+                {inst.pack.source === 'curseforge'
+                  ? t('Сборка CurseForge')
+                  : inst.pack.source === 'ftb'
+                    ? t('Сборка FTB')
+                    : t('Сборка Modrinth')}
+              </b>
               <div className="hint">
                 {t('Версия сборки: {v}', { v: inst.pack.versionName || inst.pack.versionId })}
               </div>

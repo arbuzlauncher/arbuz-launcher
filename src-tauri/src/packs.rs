@@ -8,6 +8,7 @@ use crate::catalog::curseforge;
 use crate::catalog::PACK_ID;
 use crate::content;
 use crate::error::{err, AppError, Res};
+use crate::ftb;
 use crate::http::{download_all, Dl, Progress};
 use crate::models::{default_java, Instance, Loader};
 use crate::paths;
@@ -509,8 +510,23 @@ pub async fn list_versions(state: &AppState, source: &str, project_id: &str) -> 
     match source {
         "modrinth" => modrinth_versions(state, project_id).await,
         "curseforge" => curseforge_versions(state, project_id).await,
+        "ftb" => ftb_versions(state, project_id).await,
         _ => err("Неизвестный источник"),
     }
+}
+
+async fn ftb_versions(state: &AppState, project_id: &str) -> Res<Vec<PackVersion>> {
+    let list = ftb::versions(state, project_id).await?;
+    Ok(list
+        .into_iter()
+        .map(|v| PackVersion {
+            id: v.id,
+            name: v.name,
+            mc_version: v.mc_version,
+            loader: v.loader.label().to_string(),
+            date: v.date,
+        })
+        .collect())
 }
 
 /// Есть ли в версии файл `.mrpack`.
@@ -785,6 +801,10 @@ pub async fn install_modpack(
     project_id: &str,
     version_id: Option<String>,
 ) -> Res<Instance> {
+    if source == "ftb" {
+        return install_ftb(app, state, project_id, version_id).await;
+    }
+
     let f = match source {
         "modrinth" => modrinth_pack(state, project_id, version_id.as_deref()).await?,
         "curseforge" => curseforge_pack(state, project_id, version_id.as_deref()).await?,
@@ -830,6 +850,154 @@ pub async fn install_modpack(
     });
     store::write_instance(&inst).await?;
     Ok(inst)
+}
+
+/// Установка сборки FTB: API отдаёт не архив, а список файлов версии.
+async fn install_ftb(
+    app: &AppHandle,
+    state: &AppState,
+    project_id: &str,
+    version_id: Option<String>,
+) -> Res<Instance> {
+    let list = ftb::versions(state, project_id).await?;
+    let version = match version_id.as_deref() {
+        Some(id) => match list.iter().find(|v| v.id == id) {
+            Some(v) => v.clone(),
+            None => return err("Версия сборки FTB не найдена"),
+        },
+        None => match list.first() {
+            Some(v) => v.clone(),
+            None => return err("У сборки FTB нет доступных версий"),
+        },
+    };
+
+    let pack = ftb::pack_json(state, project_id).await?;
+    let pack_name = pack
+        .get("name")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .trim();
+    let profile_name = if pack_name.is_empty() {
+        version.name.as_str()
+    } else {
+        pack_name
+    };
+    let inst = create_profile(
+        profile_name,
+        &version.mc_version,
+        version.loader,
+        forge_version(&version.mc_version, version.loader, version.loader_version.clone()),
+    )
+    .await?;
+    let detail = ftb::version_json(state, project_id, &version.id).await?;
+    let game = paths::instance_minecraft_dir(&inst.id);
+    let (dls, files) = ftb_downloads(&detail, &game)?;
+    if !dls.is_empty() {
+        download_all(app, &state.http, PACK_ID, dls, 0.0, 90.0).await?;
+    }
+
+    let mut inst = inst;
+    if let Some(java) = version.java_major {
+        inst.java_major = java;
+    }
+    inst.pack = Some(crate::models::PackRef {
+        source: "ftb".into(),
+        project_id: project_id.to_string(),
+        version_id: version.id,
+        version_name: version.name,
+        files,
+    });
+    store::write_instance(&inst).await?;
+    let _ = app.emit(
+        "progress",
+        Progress {
+            id: PACK_ID.into(),
+            pct: 100.0,
+        },
+    );
+    Ok(inst)
+}
+
+/// Список файлов версии FTB. Серверные и необязательные файлы пропускаем:
+/// клиентская сборка ставится без них, как это делает FTB App.
+fn ftb_downloads(detail: &Value, game: &Path) -> Res<(Vec<Dl>, Vec<String>)> {
+    let mut dls = Vec::new();
+    let mut files = Vec::new();
+    let Some(list) = detail.get("files").and_then(|x| x.as_array()) else {
+        return Ok((dls, files));
+    };
+
+    for f in list {
+        if f.get("serveronly").and_then(|x| x.as_bool()).unwrap_or(false) {
+            continue;
+        }
+        if f.get("optional").and_then(|x| x.as_bool()).unwrap_or(false) {
+            continue;
+        }
+        let size = f.get("size").and_then(|x| x.as_u64()).unwrap_or(0);
+        // Пустые файлы в FTB — обычно служебные `.gitkeep`; качать их незачем.
+        if size == 0 {
+            continue;
+        }
+        let dir = f
+            .get("path")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .trim()
+            .trim_start_matches("./")
+            .trim_start_matches('/')
+            .trim_end_matches('/');
+        let name = f
+            .get("name")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .trim()
+            .trim_start_matches('/');
+        let rel = if name.is_empty() {
+            dir.to_string()
+        } else if dir.is_empty() {
+            name.to_string()
+        } else if dir.ends_with(&format!("/{name}")) || dir == name {
+            dir.to_string()
+        } else {
+            format!("{dir}/{name}")
+        };
+        if rel.is_empty() {
+            continue;
+        }
+        let Ok(dest) = content::safe_join(game, &rel) else {
+            continue;
+        };
+        let url = f.get("url").and_then(|x| x.as_str()).unwrap_or("");
+        if url.is_empty() {
+            continue;
+        }
+        let sha1 = f
+            .get("sha1")
+            .and_then(|x| x.as_str())
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .or_else(|| {
+                f.pointer("/hashes/sha1")
+                    .and_then(|x| x.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+            });
+        let clean = dest
+            .strip_prefix(game)
+            .unwrap_or(Path::new(&rel))
+            .to_string_lossy()
+            .replace('\\', "/");
+        files.push(clean);
+        dls.push(Dl {
+            url: url.to_string(),
+            path: dest,
+            sha1,
+            sha256: None,
+            size,
+        });
+    }
+    Ok((dls, files))
 }
 
 /// Доступное обновление сборки.
@@ -938,6 +1106,30 @@ pub async fn check_pack(state: &AppState, id: &str) -> Res<Option<PackUpdate>> {
     if pack.project_id.is_empty() {
         return Ok(None);
     }
+    if pack.source == "ftb" {
+        let list = ftb::versions(state, &pack.project_id).await?;
+        let found = list.into_iter().find(|v| {
+            v.mc_version == inst.mc_version && v.loader == inst.loader
+        });
+        let Some(v) = found else {
+            return Ok(None);
+        };
+        if v.id == pack.version_id {
+            return Ok(None);
+        }
+        let version_name = if v.name.trim().is_empty() {
+            format!("#{}", v.id)
+        } else {
+            v.name
+        };
+        let changelog = ftb::changelog(state, &pack.project_id, &v.id).await;
+        return Ok(Some(PackUpdate {
+            version_id: v.id,
+            version_name,
+            changelog,
+            date: v.date,
+        }));
+    }
     if pack.source == "curseforge" {
         let list = curseforge_versions(state, &pack.project_id).await?;
         let want = cf_loader_name(inst.loader);
@@ -1036,6 +1228,52 @@ pub async fn apply_update(
     };
     if pack.project_id.is_empty() {
         return err("У сборки не записан проект каталога — обновите её вручную");
+    }
+    if pack.source == "ftb" {
+        let list = ftb::versions(state, &pack.project_id).await?;
+        let Some(v) = list.iter().find(|v| v.id == version_id) else {
+            return err("Версия сборки FTB не найдена");
+        };
+        let detail = ftb::version_json(state, &pack.project_id, version_id).await?;
+        let game = paths::instance_minecraft_dir(id);
+        let (dls, paths) = ftb_downloads(&detail, &game)?;
+        if !dls.is_empty() {
+            download_all(app, &state.http, PACK_ID, dls, 0.0, 90.0).await?;
+        }
+        for old in &pack.files {
+            if paths.iter().any(|p| p == old) {
+                continue;
+            }
+            if let Ok(p) = content::safe_join(&game, old) {
+                let _ = tokio::fs::remove_file(&p).await;
+            }
+        }
+        inst.mc_version = v.mc_version.clone();
+        inst.loader = v.loader;
+        inst.loader_version = forge_version(
+            &v.mc_version,
+            v.loader,
+            v.loader_version.clone(),
+        );
+        if let Some(java) = v.java_major {
+            inst.java_major = java;
+        }
+        inst.pack = Some(crate::models::PackRef {
+            source: "ftb".into(),
+            project_id: pack.project_id.clone(),
+            version_id: version_id.to_string(),
+            version_name: v.name.clone(),
+            files: paths,
+        });
+        store::write_instance(&inst).await?;
+        let _ = app.emit(
+            "progress",
+            Progress {
+                id: PACK_ID.into(),
+                pct: 100.0,
+            },
+        );
+        return Ok(inst);
     }
     let f = match pack.source.as_str() {
         "modrinth" => modrinth_pack(state, &pack.project_id, Some(version_id)).await?,
@@ -1148,6 +1386,22 @@ mod tests {
         assert_eq!(loader, Loader::Fabric);
         assert_eq!(v.as_deref(), Some("0.15.0"));
         assert_eq!(forge_version("1.20.1", Loader::Fabric, v), Some("0.15.0".into()));
+    }
+
+    #[test]
+    fn ftb_files_join_dir_and_name() {
+        let v = serde_json::json!({
+            "files": [
+                { "path": "./config", "name": "a.toml", "size": 10, "url": "https://x/a", "sha1": "abc" },
+                { "path": "./config", "name": ".gitkeep", "size": 0, "url": "https://x/0" },
+                { "path": "./mods", "name": "b.jar", "size": 20, "url": "https://x/b", "serveronly": true },
+                { "path": "./mods", "name": "c.jar", "size": 30, "url": "https://x/c", "sha1": "def" }
+            ]
+        });
+        let (dls, files) = ftb_downloads(&v, Path::new("game")).unwrap();
+        assert_eq!(files, vec!["config/a.toml".to_string(), "mods/c.jar".to_string()]);
+        assert_eq!(dls.len(), 2);
+        assert_eq!(dls[0].path, Path::new("game/config/a.toml"));
     }
 
     #[test]

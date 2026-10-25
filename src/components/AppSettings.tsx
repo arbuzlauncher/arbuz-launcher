@@ -376,6 +376,17 @@ export function AppSettings() {
             <span>{t('Включить анимации')}</span>
             <Toggle on={c.anim.enabled} onClick={() => set({ anim: { ...c.anim, enabled: !c.anim.enabled } })} />
           </div>
+          {(c.lang === 'ru' || c.lang === 'en') && (
+            <>
+              <div className="sw">
+                <span>{t('Ускоритель лаунчера')}</span>
+                <Toggle on={c.launcherAccel} onClick={() => set({ launcherAccel: !c.launcherAccel })} />
+              </div>
+              <div className="hint" style={{ paddingBottom: 12 }}>
+                {t('Если сборки медленно скачиваются, включите эту функцию.')}
+              </div>
+            </>
+          )}
           <div className="sw">
             <span>{t('ИИ-ассистент сборок')}</span>
             <Toggle on={c.aiBuilder} onClick={() => set({ aiBuilder: !c.aiBuilder })} />

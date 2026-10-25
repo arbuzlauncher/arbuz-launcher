@@ -34,6 +34,7 @@ export const DEFAULT_CONFIG: Config = {
   closeOnLaunch: false,
   showConsole: true,
   checkLauncherUpdates: true,
+  launcherAccel: false,
   closeToTray: true,
   hideEmpty: false,
   modIsolationEnabled: false,
