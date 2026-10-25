@@ -12,12 +12,22 @@ import { PLURALS_AUTO } from './i18n-plurals';
 export type Lang =
   | 'ru' | 'en' | 'pl' | 'uk' | 'eo' | 'zh'
   | 'et' | 'fi' | 'fr' | 'de' | 'be' | 'sr' | 'sk' | 'ja'
-  | 'tg' | 'uz' | 'ky' | 'lt' | 'lv' | 'iu' | 'kk' | 'olb' | 'ka';
+  | 'tg' | 'uz' | 'ky' | 'lt' | 'lv' | 'iu' | 'kk' | 'olb' | 'ka'
+  | 'fa' | 'ar' | 'he' | 'az' | 'hy' | 'pt';
+
+/** Языки с письмом справа налево. */
+export const RTL_LANGS: Lang[] = ['fa', 'ar', 'he'];
 
 /** Языки интерфейса в порядке показа в настройках. */
 export const LANGS: { id: Lang; name: string }[] = [
   { id: 'ru', name: 'Русский' },
   { id: 'en', name: 'English' },
+  { id: 'fa', name: 'فارسی' },
+  { id: 'ar', name: 'العربية' },
+  { id: 'he', name: 'עברית' },
+  { id: 'az', name: 'Azərbaycanca' },
+  { id: 'hy', name: 'Հայերեն' },
+  { id: 'pt', name: 'Português' },
   { id: 'pl', name: 'Polski' },
   { id: 'uk', name: 'Українська' },
   { id: 'be', name: 'Беларуская' },
@@ -45,6 +55,12 @@ export const LANGS: { id: Lang; name: string }[] = [
 export const LANG_EN: Record<string, string> = {
   ru: 'Russian',
   en: 'English',
+  fa: 'Persian',
+  ar: 'Arabic',
+  he: 'Hebrew',
+  az: 'Azerbaijani',
+  hy: 'Armenian',
+  pt: 'Portuguese',
   pl: 'Polish',
   uk: 'Ukrainian',
   be: 'Belarusian',
@@ -663,6 +679,19 @@ const EN: Table = {
   '.mrpack — формат Modrinth: моды скачиваются по ссылкам, конфиги внутри архива. .zip — формат CurseForge (manifest.json + overrides), его понимают CurseForge и Prism.': '.mrpack — the Modrinth format: mods are downloaded by URL, configs are inside. .zip — the CurseForge format (manifest.json + overrides), understood by CurseForge and Prism.',
   '.mrpack — формат Modrinth: моды скачиваются по ссылкам, конфиги внутри архива. .zip — формат CurseForge (manifest.json + overrides). MultiMC/Prism .zip — instance.cfg, mmc-pack.json и папка .minecraft, такой архив импортируется в Prism и MultiMC.': '.mrpack — the Modrinth format: mods are downloaded by URL, configs are inside. .zip — the CurseForge format (manifest.json + overrides). The MultiMC/Prism .zip has instance.cfg, mmc-pack.json and a .minecraft folder, and imports into Prism and MultiMC.',
   'Экспорт MultiMC/Prism .zip': 'Export MultiMC/Prism .zip',
+  'Импорт CurseForge': 'Import CurseForge',
+  'Импорт Modrinth': 'Import Modrinth',
+  'Выбрать .mrpack': 'Choose .mrpack',
+  'Архив MultiMC/Prism': 'MultiMC/Prism archive',
+  'Выберите папку установленного профиля или архив .zip, который экспортировал лаунчер.': 'Pick the folder of an installed profile or a .zip archive exported by the launcher.',
+  'Папка профиля': 'Profile folder',
+  'Архив .zip': '.zip archive',
+  'Экспорт Modrinth .mrpack': 'Export Modrinth .mrpack',
+  'Экспорт CurseForge .zip': 'Export CurseForge .zip',
+  'Экспорт…': 'Export…',
+  'Экспорт профиля': 'Export profile',
+  '«{name}» можно перенести в другой лаунчер: выберите формат.': '“{name}” can be moved to another launcher: pick a format.',
+  'CurseForge и Prism понимают .zip с manifest.json, Modrinth — .mrpack, MultiMC/Prism — .zip с instance.cfg и mmc-pack.json.': 'CurseForge and Prism understand a .zip with manifest.json, Modrinth uses .mrpack, and MultiMC/Prism a .zip with instance.cfg and mmc-pack.json.',
   'Играть с друзьями': 'Play with friends',
   'Порт откроет сам роутер по UPnP: свой сервер и сторонние программы не нужны.': 'The router opens the port itself via UPnP: no own server and no third-party apps needed.',
   'Скажите друзьям этот адрес — порт открыт на роутере.': 'Send your friends this address — the port is open on the router.',
@@ -715,11 +744,26 @@ const EN: Table = {
   'Пока пусто: добавьте адрес сервера сверху.': 'Nothing here yet: add a server address above.',
   'Профиль уже запущен.': 'This profile is already running.',
   'Консоль': 'Console',
+  'Консоль и логи Minecraft': 'Minecraft console and logs',
+  'в реальном времени': 'live',
+  'из latest.log': 'from latest.log',
+  'Перечитать latest.log': 'Re-read latest.log',
+  'Папка логов': 'Logs folder',
+  'Читаю лог…': 'Reading the log…',
+  'Логов пока нет — запустите игру': 'No logs yet — start the game',
+  'Логов пока нет — запустите игру.': 'No logs yet — start the game.',
+  'Лог прошлого запуска': 'Log from the previous run',
+  'Копировать всё': 'Copy all',
+  'Копировать выбранное': 'Copy selection',
+  'Скопировано': 'Copied',
+  'Сначала выделите строки': 'Select some lines first',
+  'ошибок: {n}': 'errors: {n}',
+  'предупреждений: {n}': 'warnings: {n}',
   'Игра запущена': 'Game is running',
   'Игра не запущена': 'Game is not running',
   'Развернуть': 'Expand',
   'Логи появятся при запуске игры.': 'Logs will appear when the game starts.',
-  'Живой лог игры этого профиля: ошибки и предупреждения подсвечены. Запустите игру — строки появятся сами.': 'Live log of this profile: errors and warnings are highlighted. Start the game and the lines will appear on their own.',
+  'Лог игры этого профиля: ошибки и предупреждения подсвечены. Пока игра запущена, строки идут в реальном времени; после перезапуска лаунчера виден хвост latest.log.': 'This profile’s game log: errors and warnings are highlighted. While the game runs the lines are live; after a launcher restart the tail of latest.log is shown.',
   'Поиск по логу': 'Search the log',
   'Копировать': 'Copy',
   'Очистить': 'Clear',
@@ -2463,6 +2507,12 @@ const KK: Table = {
 };
 
 const IU: Table = {};
+const FA: Table = {};
+const AR: Table = {};
+const HE: Table = {};
+const AZ: Table = {};
+const HY: Table = {};
+const PT: Table = {};
 
 const KA: Table = {
   'Главная': 'მთავარი',
@@ -3102,6 +3152,7 @@ const DICTS: Record<Exclude<Lang, 'ru'>, Table> = {
   en: EN, pl: PL, uk: UK, eo: EO, zh: ZH,
   et: ET, fi: FI, fr: FR, de: DE, be: BE, sr: SR, sk: SK, ja: JA,
   tg: TG, uz: UZ, ky: KY, lt: LT, lv: LV, iu: IU, kk: KK, olb: OLB, ka: KA,
+  fa: FA, ar: AR, he: HE, az: AZ, hy: HY, pt: PT,
 };
 
 const MANUAL: Record<string, Table> = { ...DICTS };
@@ -3169,11 +3220,17 @@ const MONTHS: Partial<Record<Lang, string[]>> = {
   uk: ['січ', 'лют', 'бер', 'кві', 'тра', 'чер', 'лип', 'сер', 'вер', 'жов', 'лис', 'гру'],
   eo: ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aŭg', 'sep', 'okt', 'nov', 'dec'],
   zh: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+  fa: ['ژانویه', 'فوریه', 'مارس', 'آوریل', 'مه', 'ژوئن', 'ژوئیه', 'اوت', 'سپتامبر', 'اکتبر', 'نوامبر', 'دسامبر'],
+  ar: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+  he: ['ינו', 'פבר', 'מרץ', 'אפר', 'מאי', 'יונ', 'יול', 'אוג', 'ספט', 'אוק', 'נוב', 'דצמ'],
+  az: ['yan', 'fev', 'mar', 'apr', 'may', 'iyn', 'iyl', 'avq', 'sen', 'okt', 'noy', 'dek'],
+  hy: ['հնվ', 'փտվ', 'մրտ', 'ապր', 'մյս', 'հնս', 'հլս', 'օգս', 'սեպ', 'հոկ', 'նոյ', 'դեկ'],
+  pt: ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'],
 };
 
 /** Приводит произвольное значение из конфига к известному языку. */
 export function normLang(v: unknown): Lang {
-  const known: string[] = ['en', 'pl', 'uk', 'eo', 'zh', 'et', 'fi', 'fr', 'de', 'be', 'sr', 'sk', 'ja', 'tg', 'uz', 'ky', 'lt', 'lv', 'iu', 'kk', 'olb', 'ka'];
+  const known: string[] = ['en', 'pl', 'uk', 'eo', 'zh', 'et', 'fi', 'fr', 'de', 'be', 'sr', 'sk', 'ja', 'tg', 'uz', 'ky', 'lt', 'lv', 'iu', 'kk', 'olb', 'ka', 'fa', 'ar', 'he', 'az', 'hy', 'pt'];
   return typeof v === 'string' && known.includes(v) ? (v as Lang) : 'ru';
 }
 

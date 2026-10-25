@@ -242,6 +242,7 @@ pub async fn create_instance(
         playtime_sec: 0,
         playtime_days: std::collections::BTreeMap::new(),
         last_played: None,
+        scanner_mode: None,
         created,
         pack: None,
         game_dir: None,
@@ -279,163 +280,12 @@ pub async fn update_instance(instance: Instance) -> Res<()> {
     store::write_json_atomic(&paths::instance_json(&instance.id), &instance).await
 }
 
-/// Привязывает папку игры к профилю: junction на Windows (без прав админа,
-/// работает между дисками), symlink на macOS/Linux.
-async fn link_game_dir(link: &std::path::Path, target: &std::path::Path) -> Res<()> {
-    if let Some(parent) = link.parent() {
-        tokio::fs::create_dir_all(parent).await?;
-    }
-    #[cfg(windows)]
-    {
-        let mut cmd = tokio::process::Command::new("cmd");
-        cmd.args(["/C", "mklink", "/J"]).arg(link).arg(target);
-        crate::winproc::hide_console(&mut cmd);
-        let out = cmd.output().await?;
-        if !out.status.success() {
-            let e = String::from_utf8_lossy(&out.stderr);
-            return err(format!("Не удалось привязать папку игры: {}", e.trim()));
-        }
-    }
-    #[cfg(not(windows))]
-    {
-        tokio::fs::symlink(target, link).await?;
-    }
-    Ok(())
-}
-
-/// Снимает ссылку, не трогая саму папку с игрой.
-async fn unlink_game_dir(link: &std::path::Path) -> Res<()> {
-    let meta = match tokio::fs::symlink_metadata(link).await {
-        Ok(m) => m,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-        Err(e) => return Err(e.into()),
-    };
-    if meta.file_type().is_symlink() {
-        tokio::fs::remove_file(link).await?;
-    } else {
-        #[cfg(windows)]
-        tokio::fs::remove_dir(link).await?;
-        #[cfg(not(windows))]
-        tokio::fs::remove_dir_all(link).await?;
-    }
-    Ok(())
-}
-
-/// Переносит содержимое старой папки игры в новую (только если та пустая).
-fn move_children(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
-    for e in std::fs::read_dir(from)? {
-        let e = e?;
-        let dst = to.join(e.file_name());
-        if dst.exists() {
-            continue;
-        }
-        let src = e.path();
-        if std::fs::rename(&src, &dst).is_err() {
-            copy_recursive(&src, &dst)?;
-            if src.is_dir() {
-                std::fs::remove_dir_all(&src)?;
-            } else {
-                std::fs::remove_file(&src)?;
-            }
-        }
-    }
-    Ok(())
-}
-
-fn copy_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
-    if src.is_dir() {
-        std::fs::create_dir_all(dst)?;
-        for e in std::fs::read_dir(src)? {
-            let e = e?;
-            copy_recursive(&e.path(), &dst.join(e.file_name()))?;
-        }
-    } else {
-        std::fs::copy(src, dst)?;
-    }
-    Ok(())
-}
-
-/// Пустая папка игры профиля (на случай сброса или ручного удаления ссылки).
-async fn ensure_profile_game_dir(id: &str) -> Res<()> {
-    let dir = paths::instance_minecraft_dir(id);
-    tokio::fs::create_dir_all(&dir).await?;
-    for sub in ["mods", "config", "saves", "resourcepacks", "shaderpacks", "logs"] {
-        tokio::fs::create_dir_all(dir.join(sub)).await?;
-    }
-    Ok(())
-}
-
 /// Своя папка игры: `path = None` — вернуть папку профиля.
 #[tauri::command]
 pub async fn set_instance_game_dir(id: String, path: Option<String>) -> Res<Instance> {
     paths::validate_instance_id(&id)?;
     let mut inst = store::read_instance(&id).await?;
-    let link = paths::instance_minecraft_dir(&id);
-    let custom = path.map(|p| p.trim().to_string()).filter(|p| !p.is_empty());
-
-    let reset = match custom.as_deref() {
-        None => true,
-        Some(raw) => {
-            if raw.contains("..") {
-                return err("Некорректный путь к папке игры");
-            }
-            let p = std::path::PathBuf::from(raw);
-            if !p.is_absolute() {
-                return err("Укажите полный путь к папке игры");
-            }
-            let same = std::fs::canonicalize(&p).ok() == std::fs::canonicalize(&link).ok();
-            same
-        }
-    };
-
-    if reset {
-        if inst.game_dir.is_some() {
-            unlink_game_dir(&link).await?;
-            ensure_profile_game_dir(&id).await?;
-            inst.game_dir = None;
-        } else {
-            ensure_profile_game_dir(&id).await?;
-        }
-    } else {
-        let raw = custom.unwrap_or_default();
-        let target = std::path::PathBuf::from(&raw);
-        tokio::fs::create_dir_all(&target).await?;
-        // Внутрь профиля ссылку не кладём: получится рекурсия.
-        let inst_dir = paths::instance_dir(&id);
-        let canon_target = std::fs::canonicalize(&target).unwrap_or_else(|_| target.clone());
-        let canon_inst = std::fs::canonicalize(&inst_dir).unwrap_or_else(|_| inst_dir.clone());
-        if canon_target.starts_with(&canon_inst) {
-            let _ = ensure_profile_game_dir(&id).await;
-            return err("Выберите папку вне профиля лаунчера");
-        }
-
-        if inst.game_dir.is_some() {
-            unlink_game_dir(&link).await?;
-        } else if tokio::fs::metadata(&link).await.map(|m| m.is_dir()).unwrap_or(false) {
-            // Первый раз: если новая папка пустая, переносим туда моды и миры.
-            let empty = std::fs::read_dir(&target)?.next().is_none();
-            if empty {
-                let (from, to) = (link.clone(), target.clone());
-                tokio::task::spawn_blocking(move || move_children(&from, &to)).await??;
-            }
-            if tokio::fs::remove_dir(&link).await.is_err() {
-                // В папке профиля что-то осталось — не удаляем, а отодвигаем в сторону.
-                let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
-                let backup = paths::instance_dir(&id).join(format!("minecraft.old-{stamp}"));
-                tokio::fs::rename(&link, &backup).await?;
-            }
-        }
-
-        if let Err(e) = link_game_dir(&link, &target).await {
-            // Профиль не должен остаться без папки игры.
-            ensure_profile_game_dir(&id).await?;
-            inst.game_dir = None;
-            let _ = store::write_instance(&inst).await;
-            return Err(e);
-        }
-        inst.game_dir = Some(target.to_string_lossy().to_string());
-    }
-
+    crate::gamedir::switch(&mut inst, path.as_deref()).await?;
     store::write_instance(&inst).await?;
     Ok(inst)
 }
@@ -444,12 +294,10 @@ pub async fn set_instance_game_dir(id: String, path: Option<String>) -> Res<Inst
 pub async fn delete_instance(id: String) -> Res<()> {
     paths::validate_instance_id(&id)?;
     let dir = paths::instance_dir(&id);
-    // Если папка игры вынесена — снимаем ссылку, иначе remove_dir_all удалит
-    // данные игрока вместе с профилем.
+    // Ссылку на вынесенную папку игры снимаем до удаления профиля,
+    // иначе remove_dir_all заденет данные игрока.
     if let Ok(inst) = store::read_instance(&id).await {
-        if inst.game_dir.is_some() {
-            let _ = unlink_game_dir(&paths::instance_minecraft_dir(&id)).await;
-        }
+        crate::gamedir::detach(&inst).await;
     }
     if tokio::fs::metadata(&dir).await.is_ok() {
         tokio::fs::remove_dir_all(&dir).await?;
@@ -545,6 +393,52 @@ pub async fn clear_instance_icon(id: String) -> Res<Instance> {
 pub async fn open_instance_folder(app: AppHandle, id: String) -> Res<()> {
     paths::validate_instance_id(&id)?;
     let dir = paths::instance_minecraft_dir(&id);
+    tokio::fs::create_dir_all(&dir).await?;
+    app.opener()
+        .open_path(dir.to_string_lossy().to_string(), None::<String>)
+        .map_err(|e| AppError::Msg(e.to_string()))?;
+    Ok(())
+}
+
+/// Консоль игры из `logs/latest.log` — её видно даже после перезапуска
+/// лаунчера, когда живых строк в памяти уже нет.
+#[tauri::command]
+pub async fn read_game_log(id: String, tail: Option<usize>) -> Res<Vec<String>> {
+    paths::validate_instance_id(&id)?;
+    let path = paths::instance_minecraft_dir(&id).join("logs").join("latest.log");
+    let bytes = match tokio::fs::read(&path).await {
+        Ok(b) => b,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(e.into()),
+    };
+
+    // Файл быстро растёт, читаем только хвост. Обрезанный первый байт
+    // отбрасываем вместе с недописанной строкой.
+    const MAX_BYTES: usize = 512 * 1024;
+    let cut = bytes.len().saturating_sub(MAX_BYTES);
+    let slice = &bytes[cut..];
+    let end = std::str::from_utf8(slice)
+        .map(|_| slice.len())
+        .unwrap_or_else(|e| e.valid_up_to());
+    let text = String::from_utf8_lossy(&slice[..end]);
+
+    let limit = tail.unwrap_or(1200).clamp(50, 5000);
+    let mut lines: Vec<&str> = text.lines().collect();
+    if cut > 0 && !lines.is_empty() {
+        lines.remove(0);
+    }
+    let start = lines.len().saturating_sub(limit);
+    Ok(lines[start..]
+        .iter()
+        .map(|l| l.trim_end_matches('\r').to_string())
+        .collect())
+}
+
+/// Открывает папку `logs` профиля.
+#[tauri::command]
+pub async fn open_logs_folder(app: AppHandle, id: String) -> Res<()> {
+    paths::validate_instance_id(&id)?;
+    let dir = paths::instance_minecraft_dir(&id).join("logs");
     tokio::fs::create_dir_all(&dir).await?;
     app.opener()
         .open_path(dir.to_string_lossy().to_string(), None::<String>)
@@ -731,9 +625,11 @@ pub async fn launch_instance(
     id: String,
     world: Option<String>,
     server: Option<String>,
+    // Пользователь подтвердил «запустить всё равно» — пропустить гейт сканера.
+    scan_override: Option<bool>,
 ) -> Res<()> {
     paths::validate_instance_id(&id)?;
-    crate::mojang::launch::launch(app, state.inner(), id, world, server).await
+    crate::mojang::launch::launch(app, state.inner(), id, world, server, scan_override.unwrap_or(false)).await
 }
 
 #[tauri::command]
@@ -1091,6 +987,193 @@ pub async fn open_pack_configs(app: AppHandle, id: String) -> Res<()> {
 #[tauri::command]
 pub async fn account_skin(state: State<'_, AppState>, id: String) -> Res<Option<crate::skins::Skin>> {
     crate::skins::account_skin(&state, &id).await
+}
+
+// ---------------------------------------------------------------------------
+// Сканер модов
+// ---------------------------------------------------------------------------
+
+/// Сканирует контент профиля и возвращает отчёты по каждому файлу.
+#[tauri::command]
+pub async fn scan_mods(state: State<'_, AppState>, id: String) -> Res<Vec<crate::scanner::ModReport>> {
+    crate::scanner::scan_instance(&state, &id).await
+}
+
+/// Ручное исключение файла из блокировки сканера (или его снятие).
+#[tauri::command]
+pub async fn scanner_allow_mod(id: String, file: String, allow: bool) -> Res<()> {
+    crate::scanner::allow_mod(&id, &file, allow).await
+}
+
+/// Файлы в карантине профиля (параноидальный режим).
+#[tauri::command]
+pub async fn scanner_quarantine(id: String) -> Res<Vec<String>> {
+    crate::scanner::quarantine_list(&id).await
+}
+
+/// Возвращает файл из карантина в mods/.
+#[tauri::command]
+pub async fn scanner_quarantine_restore(id: String, name: String) -> Res<()> {
+    crate::scanner::quarantine_restore(&id, &name).await
+}
+
+/// ИИ-заметка по одному подозрительному моду (через free-модели Zen).
+/// Только пояснение для пользователя: вердикт сканера не меняет.
+#[tauri::command]
+pub async fn ai_scan_note(
+    state: State<'_, AppState>,
+    id: String,
+    file: String,
+    lang: String,
+) -> Res<crate::scanner::ai_note::AiNote> {
+    crate::scanner::ai_note_for(&state, &id, &file, &lang).await
+}
+
+// ---------------------------------------------------------------------------
+// Синхронизация настроек между профилями (Б1)
+// ---------------------------------------------------------------------------
+
+/// Ключи и значения options.txt главного профиля (для списка в UI).
+/// Настройки синхронизации кладутся в config.json через set_config.
+#[tauri::command]
+pub async fn sync_master_options(state: State<'_, AppState>) -> Res<std::collections::BTreeMap<String, String>> {
+    let master = state
+        .config
+        .lock()
+        .await
+        .sync
+        .clone()
+        .map(|s| s.master)
+        .unwrap_or_default();
+    if master.is_empty() {
+        return Ok(std::collections::BTreeMap::new());
+    }
+    crate::sync::master_keys(&master).await
+}
+
+// ---------------------------------------------------------------------------
+// Умная консоль (Б2)
+// ---------------------------------------------------------------------------
+
+/// Какому модулю принадлежит класс из стектрейса.
+#[tauri::command]
+pub async fn find_class_owner(
+    id: String,
+    class: String,
+) -> Res<Option<crate::scanner::classindex::ClassOwner>> {
+    crate::scanner::classindex::find_owner(&id, &class).await
+}
+
+// ---------------------------------------------------------------------------
+// Каталог серверов (Б3)
+// ---------------------------------------------------------------------------
+
+/// Список серверов из статичного JSON (кэш; refresh — перечитать по URL).
+#[tauri::command]
+pub async fn servers_catalog(state: State<'_, AppState>, refresh: bool) -> Res<Vec<crate::servers::CatalogServer>> {
+    let url = state.config.lock().await.servers_url.clone();
+    crate::servers::catalog(&state.http, &url, refresh).await
+}
+
+/// Server List Ping одного сервера.
+#[tauri::command]
+pub async fn server_ping(ip: String) -> Res<crate::servers::PingInfo> {
+    Ok(crate::servers::ping(&ip).await)
+}
+
+/// Добавляет сервер в servers.dat профиля.
+#[tauri::command]
+pub async fn servers_dat_add(id: String, name: String, ip: String) -> Res<()> {
+    crate::servers::add_server(&id, &name, &ip).await
+}
+
+/// Закреплённые серверы профиля.
+#[tauri::command]
+pub async fn pinned_servers(id: String) -> Res<Vec<crate::servers::PinnedServer>> {
+    crate::servers::pinned_list(&id).await
+}
+
+/// Закрепить сервер на профиле (или снять закрепление).
+#[tauri::command]
+pub async fn pin_server(id: String, name: String, ip: String, pin: bool) -> Res<()> {
+    crate::servers::pin(&id, &name, &ip, pin).await
+}
+
+// ---------------------------------------------------------------------------
+// Живой мониторинг игры (Б4)
+// ---------------------------------------------------------------------------
+
+/// Снимок ресурсов процесса игры (опрашивается интерфейсом раз в пару секунд).
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitorSample {
+    pub pid: u32,
+    pub found: bool,
+    /// Резидентная память процесса, МБ.
+    pub ram_mb: u64,
+    /// CPU процесса, % (один поток может дать до ~100 на ядро).
+    pub cpu_pct: f32,
+}
+
+// ---------------------------------------------------------------------------
+// Бенчмарк сборки (Б5)
+// ---------------------------------------------------------------------------
+
+/// Начинает прогон бенчмарка (до запуска игры) и сэмплер ресурсов.
+#[tauri::command]
+pub async fn benchmark_start(id: String, world: Option<String>) -> Res<()> {
+    paths::validate_instance_id(&id)?;
+    crate::benchmark::start(&id, world.as_deref())?;
+    tokio::spawn(async move {
+        // Тик раз в 2 секунды, пока прогон жив.
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            if !crate::benchmark::active() {
+                return;
+            }
+            crate::benchmark::tick();
+        }
+    });
+    Ok(())
+}
+
+/// Отменяет прогон (запуск игры не удался).
+#[tauri::command]
+pub fn benchmark_cancel() {
+    crate::benchmark::cancel();
+}
+
+/// Прошлые прогоны профиля, свежие сверху.
+#[tauri::command]
+pub fn benchmark_list(id: String) -> Res<Vec<crate::benchmark::BenchRun>> {
+    paths::validate_instance_id(&id)?;
+    crate::benchmark::list(&id)
+}
+
+#[tauri::command]
+pub fn game_monitor(state: State<'_, AppState>, id: String) -> MonitorSample {
+    let Some(pid) = state.game_pids.blocking_lock().get(&id).copied() else {
+        return MonitorSample { pid: 0, found: false, ram_mb: 0, cpu_pct: 0.0 };
+    };
+    let pid = sysinfo::Pid::from_u32(pid);
+    // Один System на процесс: cpu_usage считается от прошлого опроса.
+    let mut sys = state.monitor.lock().unwrap_or_else(|e| e.into_inner());
+    sys.refresh_process(pid);
+    match sys.process(pid) {
+        Some(p) => MonitorSample {
+            pid: p.pid().as_u32(),
+            found: true,
+            ram_mb: p.memory() / 1024 / 1024,
+            cpu_pct: p.cpu_usage(),
+        },
+        None => MonitorSample { pid: pid.as_u32(), found: false, ram_mb: 0, cpu_pct: 0.0 },
+    }
+}
+
+/// Окончательно удаляет файл из карантина.
+#[tauri::command]
+pub async fn scanner_quarantine_delete(id: String, name: String) -> Res<()> {
+    crate::scanner::quarantine_delete(&id, &name).await
 }
 
 // ---------------------------------------------------------------------------

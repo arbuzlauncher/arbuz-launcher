@@ -37,6 +37,8 @@ export interface Instance {
   pack?: PackRef | null;
   /** Своя папка игры (`.minecraft`); null — `instances/<id>/minecraft`. */
   gameDir?: string | null;
+  /** Режим сканера модов для профиля: 'normal' | 'strict' | 'paranoid' | null (глобальный). */
+  scannerMode: string | null;
 }
 
 /** Источник сборки профиля. */
@@ -129,6 +131,16 @@ export interface Config {
   hideEmpty: boolean;
   modIsolationEnabled: boolean;
   modIsolationLevel: string;
+  /** Сканер модов перед запуском игры. */
+  scannerEnabled: boolean;
+  /** Режим сканера: 'normal' | 'strict' | 'paranoid'. */
+  scannerMode: string;
+  /** ИИ-этап сканера (заметки по подозрительным модам). */
+  aiScanner: boolean;
+  /** URL статичного JSON со списком серверов. */
+  serversUrl: string;
+  /** Показывать статистику времени игры. */
+  showPlaytimeStats: boolean;
   curseforgeApiKey: string;
   /** Экспериментально: ИИ-ассистент сборок по промпту. */
   aiBuilder: boolean;
@@ -141,6 +153,7 @@ export interface Config {
   anim: AnimConfig;
   custom: CustomTheme;
   moves: Record<string, [number, number]>;
+  sync: SyncSettings | null;
 }
 
 export interface JavaInstall {
@@ -414,6 +427,107 @@ export interface NewsItem {
   imageUrl: string | null;
 }
 
+/** ИИ-заметка сканера по одному моду (пояснение, не приговор). */
+export interface AiNote {
+  model: string;
+  assessment: string;
+  confidence: number;
+  note: string;
+  elapsedMs: number;
+}
+
+/** Сервер из каталога (статичный JSON по URL из настроек). */
+export interface CatalogServer {
+  name: string;
+  ip: string;
+  version: string;
+  mode: string;
+}
+
+/** Результат Server List Ping. */
+export interface PingInfo {
+  host: string;
+  port: number;
+  online: boolean;
+  latencyMs: number;
+  version: string;
+  playersOnline: number;
+  playersMax: number;
+  motd: string;
+}
+
+/** Прогон бенчмарка сборки. */
+export interface BenchRun {
+  date: number;
+  mcVersion: string;
+  loader: string;
+  mods: number;
+  world: string | null;
+  /** мс до готовности игры (меню/атласы); 0 — маркер не увидели. */
+  loadMs: number;
+  ramAvgMb: number;
+  ramPeakMb: number;
+  cpuAvg: number;
+  cpuPeak: number;
+  samples: number;
+}
+
+/** Снимок ресурсов процесса игры для монитора. */
+export interface MonitorSample {
+  pid: number;
+  found: boolean;
+  ramMb: number;
+  cpuPct: number;
+}
+
+/** Закреплённый на профиле сервер. */
+export interface PinnedServer {
+  name: string;
+  ip: string;
+}
+
+/** Владелец класса из стектрейса (мод из mods/). */
+export interface ClassOwner {
+  name: string;
+  file: string;
+}
+
+/** Одна находка сканера модов. */
+export interface ScanFinding {
+  rule: string;
+  /** Машиночитаемый код: r6_native, r12_agent… */
+  code: string;
+  weight: number;
+  hard: boolean;
+  place: string;
+  what: string;
+}
+
+/** Отчёт сканера по одному файлу контента. */
+export interface ModReport {
+  file: string;
+  name: string;
+  sha256: string;
+  score: number;
+  level: 'ok' | 'suspicious' | 'danger' | string;
+  findings: ScanFinding[];
+  knownHash: boolean;
+  modrinthProject: string | null;
+  offlineLookup: boolean;
+  /** Файл в ручных исключениях профиля. */
+  allowed: boolean;
+}
+
+/** Настройки синхронизации профилей (совпадает с sync::SyncSettings). */
+export interface SyncSettings {
+  /** id главного профиля. */
+  master: string;
+  /** Выбранные ключи options.txt. */
+  keys: string[];
+  /** Переносить servers.dat. */
+  serversDat: boolean;
+}
+
 /** Текстура скина аккаунта: data-URL и её размеры в пикселях. */
 export interface Skin {
   url: string;
@@ -465,6 +579,10 @@ export const api = {
 
   openInstanceFolder: (id: string) => invoke<void>('open_instance_folder', { id }),
 
+  /** Хвост `logs/latest.log` — консоль игры после перезапуска лаунчера. */
+  readGameLog: (id: string, tail?: number) => invoke<string[]>('read_game_log', { id, tail }),
+  openLogsFolder: (id: string) => invoke<void>('open_logs_folder', { id }),
+
   getSystemRamMb: () => invoke<number>('get_system_ram_mb'),
 
   listMcVersions: () => invoke<McVersion[]>('list_mc_versions'),
@@ -488,8 +606,8 @@ export const api = {
   msCancel: () => invoke<void>('ms_cancel'),
   setActiveAccount: (id: string) => invoke<void>('set_active_account', { id }),
   removeAccount: (id: string) => invoke<void>('remove_account', { id }),
-  launchInstance: (id: string, world: string | null, server: string | null = null) =>
-    invoke<void>('launch_instance', { id, world, server }),
+  launchInstance: (id: string, world: string | null, server: string | null = null, scanOverride?: boolean) =>
+    invoke<void>('launch_instance', { id, world, server, scanOverride: scanOverride ?? false }),
   stopInstance: (id: string) => invoke<void>('stop_instance', { id }),
 
   listContent: (id: string) => invoke<ContentItem[]>('list_content', { id }),
@@ -581,4 +699,31 @@ export const api = {
   p2pStop: () => invoke<void>('p2p_stop'),
   p2pActive: () => invoke<P2pShare | null>('p2p_active'),
   checkLauncherUpdate: () => invoke<LauncherUpdate | null>('check_launcher_update'),
+  scanMods: (id: string) => invoke<ModReport[]>('scan_mods', { id }),
+  scannerAllowMod: (id: string, file: string, allow: boolean) =>
+    invoke<void>('scanner_allow_mod', { id, file, allow }),
+  scannerQuarantine: (id: string) => invoke<string[]>('scanner_quarantine', { id }),
+  scannerQuarantineRestore: (id: string, name: string) =>
+    invoke<void>('scanner_quarantine_restore', { id, name }),
+  scannerQuarantineDelete: (id: string, name: string) =>
+    invoke<void>('scanner_quarantine_delete', { id, name }),
+  aiScanNote: (id: string, file: string, lang: string) =>
+    invoke<AiNote>('ai_scan_note', { id, file, lang }),
+  syncMasterOptions: () => invoke<Record<string, string>>('sync_master_options'),
+  findClassOwner: (id: string, cls: string) =>
+    invoke<ClassOwner | null>('find_class_owner', { id, class: cls }),
+
+  serversCatalog: (refresh: boolean) => invoke<CatalogServer[]>('servers_catalog', { refresh }),
+  serverPing: (ip: string) => invoke<PingInfo>('server_ping', { ip }),
+  serversDatAdd: (id: string, name: string, ip: string) =>
+    invoke<void>('servers_dat_add', { id, name, ip }),
+  pinnedServers: (id: string) => invoke<PinnedServer[]>('pinned_servers', { id }),
+  pinServer: (id: string, name: string, ip: string, pin: boolean) =>
+    invoke<void>('pin_server', { id, name, ip, pin }),
+  gameMonitor: (id: string) => invoke<MonitorSample>('game_monitor', { id }),
+
+  benchmarkStart: (id: string, world: string | null) =>
+    invoke<void>('benchmark_start', { id, world }),
+  benchmarkCancel: () => invoke<void>('benchmark_cancel'),
+  benchmarkList: (id: string) => invoke<BenchRun[]>('benchmark_list', { id }),
 };

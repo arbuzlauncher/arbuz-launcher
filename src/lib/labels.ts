@@ -40,5 +40,12 @@ export const WINDOW_PRESETS: [number, number][] = [
 export const JVM_PRESETS: [string, string][] = [
   ['G1GC', '-XX:+UseG1GC -XX:+ParallelRefProcEnabled'],
   ['ZGC', '-XX:+UseZGC'],
-  ['Aikar', '-XX:+UseG1GC -XX:MaxGCPauseMillis=200'],
+  [
+    'Aikar',
+    '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCCycleTargetUtilization=30',
+  ],
+  [
+    'Aikar + PreTouch',
+    '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCCycleTargetUtilization=30',
+  ],
 ];

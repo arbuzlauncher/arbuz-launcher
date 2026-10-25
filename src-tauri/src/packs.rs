@@ -71,6 +71,7 @@ async fn create_profile(
         playtime_sec: 0,
         playtime_days: BTreeMap::new(),
         last_played: None,
+        scanner_mode: None,
         created: chrono::Utc::now().timestamp(),
         pack: None,
         game_dir: None,

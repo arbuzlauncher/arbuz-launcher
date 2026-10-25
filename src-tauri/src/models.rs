@@ -72,6 +72,10 @@ pub struct Instance {    pub id: String,
     /// Своя папка игры (`.minecraft`); `None` — `instances/<id>/minecraft`.
     #[serde(default)]
     pub game_dir: Option<String>,
+    /// Режим сканера модов для этого профиля: "normal" | "strict" | "paranoid".
+    /// `None`/пусто — использовать глобальный режим.
+    #[serde(default)]
+    pub scanner_mode: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
@@ -349,10 +353,21 @@ pub struct Config {
     /// Закрытие окна прячет лаунчер в трей, а не выходит.
     pub close_to_tray: bool,
     pub hide_empty: bool,
-    /// Экспериментально: включена ли защита при запуске игры.
+    /// Экспериментально: защита при запуске игры.
     pub mod_isolation_enabled: bool,
     /// Уровень защиты: "min" | "std" | "strict".
     pub mod_isolation_level: String,
+    /// Сканер модов перед запуском игры.
+    pub scanner_enabled: bool,
+    /// Режим сканера: "normal" | "strict" | "paranoid".
+    pub scanner_mode: String,
+    /// ИИ-этап сканера: заметки по подозрительным модам (фрагменты
+    /// уходят на сторонний сервис — предупреждение в настройках).
+    pub ai_scanner: bool,
+    /// URL статичного JSON со списком серверов (формат — в README).
+    pub servers_url: String,
+    /// Показывать статистику времени игры по профилям.
+    pub show_playtime_stats: bool,
     pub curseforge_api_key: String,
     /// Экспериментально: ИИ-ассистент сборок по промпту.
     pub ai_builder: bool,
@@ -369,6 +384,9 @@ pub struct Config {
     /// Сдвиги кнопок в режиме расстановки: ключ → [dx, dy].
     #[serde(default)]
     pub moves: BTreeMap<String, [f32; 2]>,
+    /// Синхронизация настроек между профилями (главный профиль + ключи).
+    #[serde(default)]
+    pub sync: Option<crate::sync::SyncSettings>,
 }
 
 impl Default for Config {
@@ -390,6 +408,11 @@ impl Default for Config {
             hide_empty: false,
             mod_isolation_enabled: false,
             mod_isolation_level: "min".into(),
+            scanner_enabled: false,
+            scanner_mode: "normal".into(),
+            ai_scanner: false,
+            servers_url: String::new(),
+            show_playtime_stats: true,
             curseforge_api_key: String::new(),
             ai_builder: true,
             ai_pack_limit: 0,
@@ -398,6 +421,7 @@ impl Default for Config {
             anim: AnimConfig::default(),
             custom: CustomTheme::default(),
             moves: BTreeMap::new(),
+            sync: None,
         }
     }
 }
@@ -430,6 +454,9 @@ impl Config {
         {
             self.ai_pack_model.clear();
         }
+        if !matches!(self.scanner_mode.as_str(), "normal" | "strict" | "paranoid") {
+            self.scanner_mode = "normal".into();
+        }
         self.moves.retain(|k, v| {
             !k.is_empty() && k.len() <= 300 && v[0].is_finite() && v[1].is_finite()
         });
@@ -442,6 +469,25 @@ impl Config {
                 break;
             };
             self.moves.remove(&k);
+        }
+        self.servers_url = self.servers_url.trim().chars().take(500).collect();
+        if !self.servers_url.is_empty()
+            && !(self.servers_url.starts_with("https://") || self.servers_url.starts_with("http://"))
+        {
+            self.servers_url = String::new();
+        }
+        if let Some(sync) = &mut self.sync {
+            if sync.master.len() != 32
+                || !sync.master.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+            {
+                sync.master = String::new();
+            }
+            sync.keys.retain(|k| !k.is_empty() && k.len() <= 100 && !k.contains(':'));
+            sync.keys.sort();
+            sync.keys.dedup();
+            sync.keys.truncate(500);
+        } else {
+            self.sync = None;
         }
     }
 }

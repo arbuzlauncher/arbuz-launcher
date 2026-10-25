@@ -248,14 +248,15 @@ pub(crate) async fn install_with_installer(
     .await?;
 
     let before = version_dir_names().await;
-    let out = tokio::process::Command::new(&java)
-        .arg("-jar")
+    let mut cmd = tokio::process::Command::new(&java);
+    cmd.arg("-jar")
         .arg(&jar)
         .arg("--installClient")
         .arg(crate::paths::shared_dir())
-        .current_dir(crate::paths::shared_dir())
-        .output()
-        .await?;
+        .current_dir(crate::paths::shared_dir());
+    // Без этого на Windows на секунду открывается окно консоли.
+    crate::winproc::hide_console(&mut cmd);
+    let out = cmd.output().await?;
     let after = version_dir_names().await;
 
     let _ = app.emit(

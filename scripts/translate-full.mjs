@@ -7,6 +7,12 @@ const JSON_OUT = path.join(ROOT, 'src', 'lib', 'i18n-auto.json');
 const TS_OUT = path.join(ROOT, 'src', 'lib', 'i18n-auto.ts');
 
 const LANGS = {
+  fa: 'fa',
+  ar: 'ar',
+  he: 'he',
+  az: 'az',
+  hy: 'hy',
+  pt: 'pt',
   pl: 'pl',
   uk: 'uk',
   eo: 'eo',
@@ -105,9 +111,15 @@ if (fs.existsSync(JSON_OUT)) {
 }
 
 const BATCH = 25;
+// ONLY=fa,ar — перевести только эти языки (остальные берутся из кэша).
+const only = (process.env.ONLY || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 let requests = 0;
 
 for (const [lang, tl] of Object.entries(LANGS)) {
+  if (only.length && !only.includes(lang)) continue;
   progress[lang] ??= {};
   const done = progress[lang];
   const pending = entries.filter(([key]) => !done[key]);

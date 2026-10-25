@@ -12,6 +12,7 @@ const VIEW_ICON: Record<View, IconName> = {
   browse: 'modpacks',
   accounts: 'accounts',
   coop: 'coop',
+  servers: 'server',
   app: 'settings',
   p: 'modpacks',
 };
@@ -22,6 +23,7 @@ const MATERIAL_ICON: Record<View, MaterialName> = {
   browse: 'extension',
   accounts: 'account_circle',
   coop: 'person_add',
+  servers: 'dns',
   app: 'settings',
   p: 'extension',
 };
@@ -64,6 +66,7 @@ export function Sidebar() {
         {item('installs', t('Установки'))}
         {item('browse', t('Каталог'))}
         {item('coop', t('Co-op'))}
+        {item('servers', t('Серверы'))}
         {item('accounts', t('Аккаунты'))}
       </div>
 

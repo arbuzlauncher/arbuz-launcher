@@ -89,13 +89,14 @@ fn parse_major(text: &str) -> Option<u8> {
 
 /// Запуск `java -version` и разбор результата. `None` — кандидат невалиден.
 async fn probe(path: &Path) -> Option<(u8, String)> {
-    let out = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        tokio::process::Command::new(path).arg("-version").output(),
-    )
-    .await
-    .ok()?
-    .ok()?;
+    let mut cmd = tokio::process::Command::new(path);
+    cmd.arg("-version");
+    // GUI-процесс без этого флага показывает на Windows мигающее окно консоли.
+    crate::winproc::hide_console(&mut cmd);
+    let out = tokio::time::timeout(std::time::Duration::from_secs(5), cmd.output())
+        .await
+        .ok()?
+        .ok()?;
     let text = if !out.stderr.is_empty() {
         String::from_utf8_lossy(&out.stderr).to_string()
     } else {

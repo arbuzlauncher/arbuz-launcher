@@ -10,12 +10,13 @@ import { ColorPicker, PRESET_COLORS } from './ColorPicker';
 import { Toggle } from './Controls';
 import { ThemePicker } from './ThemePicker';
 
-type ToggleKey = 'closeOnLaunch' | 'showConsole' | 'hideEmpty' | 'checkLauncherUpdates' | 'closeToTray';
+type ToggleKey = 'closeOnLaunch' | 'showConsole' | 'hideEmpty' | 'checkLauncherUpdates' | 'closeToTray' | 'showPlaytimeStats';
 
 const TOGGLES: [ToggleKey, string][] = [
   ['closeOnLaunch', 'Скрывать лаунчер при запуске игры'],
   ['showConsole', 'Показывать консоль игры'],
   ['hideEmpty', 'Скрывать пустые профили'],
+  ['showPlaytimeStats', 'Показывать статистику времени игры'],
   ['checkLauncherUpdates', 'Проверять обновления лаунчера'],
   ['closeToTray', 'Прятать в трей при закрытии'],
 ];
@@ -340,6 +341,18 @@ export function AppSettings() {
               {t('Без ключа каталог CurseForge работает через публичный прокси')}
             </div>
             <label className="l" style={{ marginTop: 18 }}>
+              {t('URL списка серверов')}
+            </label>
+            <input
+              type="text"
+              placeholder="https://example.com/servers.json"
+              value={c.serversUrl}
+              onChange={(e) => set({ serversUrl: e.target.value })}
+            />
+            <div className="hint" style={{ marginTop: 6 }}>
+              {t('Статичный JSON с серверами для раздела «Серверы». Формат описан в README проекта.')}
+            </div>
+            <label className="l" style={{ marginTop: 18 }}>
               {t('Папка данных')}
             </label>
             <div className="row g8">
@@ -430,6 +443,42 @@ export function AppSettings() {
           </div>
           <div className="hint" style={{ paddingBottom: 12 }}>
             {t('Жёсткая: то же плюс отдельные HOME/APPDATA/TEMP внутри профиля.')}
+          </div>
+          <div className="sw">
+            <span>{t('Сканер модов')}</span>
+            <Toggle on={c.scannerEnabled} onClick={() => set({ scannerEnabled: !c.scannerEnabled })} />
+          </div>
+          <div className="hint" style={{ paddingBottom: 4 }}>
+            {t('Перед запуском моды проверяются на подозрительные признаки: отправка данных на сторонние серверы, запуск процессов, обфускация и другое. Отчёт — во вкладке «Безопасность» профиля.')}
+          </div>
+          <div className="seg" style={{ margin: '8px 0 12px', opacity: c.scannerEnabled ? 1 : 0.45 }}>
+            {(['normal', 'strict', 'paranoid'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                disabled={!c.scannerEnabled}
+                className={c.scannerMode === m ? 'on' : ''}
+                onClick={() => set({ scannerMode: m })}
+              >
+                {t(m === 'normal' ? 'Обычный' : m === 'strict' ? 'Усиленный' : 'Параноидальный')}
+              </button>
+            ))}
+          </div>
+          <div className="hint" style={{ paddingBottom: 4 }}>
+            {t('Обычный: блокировка только при опасных признаках, подозрительные — на ваше усмотрение. Хеш мода с Modrinth заметно снижает оценку.')}
+          </div>
+          <div className="hint" style={{ paddingBottom: 4 }}>
+            {t('Усиленный: блокировка и при некоторых одиночных признаках (нативные библиотеки, обфускация, java-агент), проверяются также конфиги и паки.')}
+          </div>
+          <div className="hint" style={{ paddingBottom: 12 }}>
+            {t('Параноидальный: запускаются только моды с известным хешем и без признаков; заблокированные переносятся в карантин.')}
+          </div>
+          <div className="sw">
+            <span>{t('ИИ-заметки сканера')}</span>
+            <Toggle on={c.aiScanner} onClick={() => set({ aiScanner: !c.aiScanner })} />
+          </div>
+          <div className="hint" style={{ paddingBottom: 12 }}>
+            {t('Внимание: для подозрительных модов найденные фрагменты кода (строки, имена классов) отправляются на сторонний ИИ-сервис, чтобы получить пояснение. Заметка не влияет на оценку сканера.')}
           </div>
         </div>
         <div className="hint" style={{ marginTop: 6 }}>

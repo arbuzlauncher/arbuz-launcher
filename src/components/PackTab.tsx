@@ -1,7 +1,6 @@
 // Вкладка «Сборка»: всё для модпака — описание, проверка, конфиги и экспорт.
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { save } from '@tauri-apps/plugin-dialog';
 import {
   api,
   type ConfigDoc,
@@ -12,6 +11,7 @@ import {
   type PackManifest,
 } from '../lib/api';
 import { fmtBytes } from '../lib/format';
+import { exportPackAs } from '../lib/packExport';
 import { useT } from '../lib/i18n';
 import { LOADER_LABEL } from '../lib/labels';
 import { useStore } from '../store';
@@ -194,20 +194,14 @@ export function PackTab({ inst, initialMod }: { inst: Instance; initialMod: stri
 
   const doExport = async (fmt: 'mrpack' | 'zip' | 'mmc') => {
     if (!form) return;
-    const ext = fmt === 'mmc' ? 'zip' : fmt;
-    const base =
-      (form.name || inst.name)
-        .replace(/[\\/:*?"<>|]+/g, '_')
-        .trim()
-        .slice(0, 60) || 'pack';
+    setExporting(fmt);
     try {
-      const dest = await save({
-        defaultPath: `${dataRoot}\\${base}-${form.version || '1.0.0'}${fmt === 'mmc' ? '-mmc' : ''}.${ext}`,
-        filters: [{ name: fmt === 'mrpack' ? 'Modrinth pack' : 'ZIP', extensions: [ext] }],
+      const r = await exportPackAs(inst, fmt, {
+        name: form.name || inst.name,
+        version: form.version,
+        dir: dataRoot,
       });
-      if (!dest) return;
-      setExporting(fmt);
-      const r = await api.exportPack(inst.id, dest, fmt);
+      if (!r) return;
       toast(t('Экспортировано файлов: {n} ({size})', { n: r.files, size: fmtBytes(r.bytes) }));
     } catch (e) {
       toast(String(e));
@@ -488,10 +482,10 @@ export function PackTab({ inst, initialMod }: { inst: Instance; initialMod: stri
         </div>
         <div className="row g8" style={{ marginTop: 12, flexWrap: 'wrap' }}>
           <button className="btn pr" disabled={!!exporting} onClick={() => void doExport('mrpack')}>
-            {exporting === 'mrpack' ? t('Экспортирую…') : t('Экспорт .mrpack')}
+            {exporting === 'mrpack' ? t('Экспортирую…') : t('Экспорт Modrinth .mrpack')}
           </button>
           <button className="btn" disabled={!!exporting} onClick={() => void doExport('zip')}>
-            {exporting === 'zip' ? t('Экспортирую…') : t('Экспорт .zip')}
+            {exporting === 'zip' ? t('Экспортирую…') : t('Экспорт CurseForge .zip')}
           </button>
           <button className="btn" disabled={!!exporting} onClick={() => void doExport('mmc')}>
             {exporting === 'mmc' ? t('Экспортирую…') : t('Экспорт MultiMC/Prism .zip')}

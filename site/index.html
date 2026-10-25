@@ -1,0 +1,1353 @@
+<!doctype html><html lang="ru" dir="ltr"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}.lang-select{appearance:none;background:var(--surface-2);color:var(--fg);border:1px solid var(--outline);border-radius:999px;padding:7px 30px 7px 14px;font:500 13px var(--font-body);cursor:pointer;background-image:linear-gradient(45deg,transparent 50%,var(--fg-muted) 50%),linear-gradient(135deg,var(--fg-muted) 50%,transparent 50%);background-position:calc(100% - 16px) 52%,calc(100% - 11px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+</style></head><body>
+<title>Arbuz Launcher</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Outfit:wght@400;500;600&display=swap">
+<style>
+/* Layout: one calm column. Hero splits into copy and a theme preview with an accent picker;
+   a bento grid of five features follows, then an open-source band. Every color is a tonal
+   value derived from one seed hue (--h), the way Android's Monet builds a palette. */
+:root {
+  --h: 15;
+  --font-display: "Outfit", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+
+  --bg: oklch(0.985 0.008 var(--h));
+  --surface-1: oklch(0.955 0.018 var(--h));
+  --surface-2: oklch(0.925 0.026 var(--h));
+  --fg: oklch(0.22 0.02 var(--h));
+  --fg-muted: oklch(0.45 0.025 var(--h));
+  --outline: oklch(0.8 0.025 var(--h));
+  --primary: oklch(0.46 0.17 var(--h));
+  --on-primary: oklch(0.99 0.01 var(--h));
+  --primary-c: oklch(0.91 0.065 var(--h));
+  --on-primary-c: oklch(0.26 0.11 var(--h));
+  --secondary-c: oklch(0.9 0.035 calc(var(--h) + 20));
+  --on-secondary-c: oklch(0.28 0.04 var(--h));
+  --tertiary: oklch(0.5 0.13 calc(var(--h) + 130));
+  --tertiary-c: oklch(0.91 0.07 calc(var(--h) + 130));
+  --on-tertiary-c: oklch(0.27 0.08 calc(var(--h) + 130));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: oklch(0.19 0.012 var(--h));
+    --surface-1: oklch(0.235 0.02 var(--h));
+    --surface-2: oklch(0.285 0.025 var(--h));
+    --fg: oklch(0.93 0.012 var(--h));
+    --fg-muted: oklch(0.76 0.025 var(--h));
+    --outline: oklch(0.42 0.03 var(--h));
+    --primary: oklch(0.8 0.11 var(--h));
+    --on-primary: oklch(0.27 0.1 var(--h));
+    --primary-c: oklch(0.38 0.12 var(--h));
+    --on-primary-c: oklch(0.92 0.05 var(--h));
+    --secondary-c: oklch(0.34 0.04 calc(var(--h) + 20));
+    --on-secondary-c: oklch(0.9 0.03 var(--h));
+    --tertiary: oklch(0.8 0.11 calc(var(--h) + 130));
+    --tertiary-c: oklch(0.38 0.08 calc(var(--h) + 130));
+    --on-tertiary-c: oklch(0.92 0.05 calc(var(--h) + 130));
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: oklch(0.19 0.012 var(--h));
+  --surface-1: oklch(0.235 0.02 var(--h));
+  --surface-2: oklch(0.285 0.025 var(--h));
+  --fg: oklch(0.93 0.012 var(--h));
+  --fg-muted: oklch(0.76 0.025 var(--h));
+  --outline: oklch(0.42 0.03 var(--h));
+  --primary: oklch(0.8 0.11 var(--h));
+  --on-primary: oklch(0.27 0.1 var(--h));
+  --primary-c: oklch(0.38 0.12 var(--h));
+  --on-primary-c: oklch(0.92 0.05 var(--h));
+  --secondary-c: oklch(0.34 0.04 calc(var(--h) + 20));
+  --on-secondary-c: oklch(0.9 0.03 var(--h));
+  --tertiary: oklch(0.8 0.11 calc(var(--h) + 130));
+  --tertiary-c: oklch(0.38 0.08 calc(var(--h) + 130));
+  --on-tertiary-c: oklch(0.92 0.05 calc(var(--h) + 130));
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 8px 40px;
+}
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+h1, h2, h3, p { margin: 0; }
+
+.page { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: clamp(48px, 8vw, 88px); }
+
+/* top bar */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-block: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 500; font-size: 1.2rem; letter-spacing: -0.01em; }
+.logo { width: 34px; height: 34px; flex: none; }
+.logo .rind { fill: var(--tertiary); }
+.logo .flesh { fill: var(--primary); }
+.logo .seed { fill: var(--on-primary); }
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--surface-1); }
+.seg button { padding: 6px 13px; border-radius: 999px; font-size: 0.8125rem; font-weight: 600; color: var(--fg-muted); }
+.seg button[aria-pressed="true"] { background: var(--primary-c); color: var(--on-primary-c); }
+.pill-link { display: inline-flex; align-items: center; min-height: 36px; padding: 0 16px; border-radius: 999px; background: var(--surface-1); font-size: 0.875rem; font-weight: 600; text-decoration: none; }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 24px; border-radius: 999px; font-weight: 600; text-decoration: none; }
+.btn svg { width: 20px; height: 20px; }
+.btn:hover, .pill-link:hover, .seg button:hover { box-shadow: inset 0 0 0 999px color-mix(in oklab, currentColor 8%, transparent); }
+.btn-fill { background: var(--primary); color: var(--on-primary); }
+.btn-tonal { background: var(--secondary-c); color: var(--on-secondary-c); }
+.btn-inv { background: var(--on-primary); color: var(--primary); }
+.btn-line { color: var(--on-primary); box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--on-primary) 55%, transparent); }
+
+/* hero */
+.hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 56px); align-items: center; padding-top: clamp(8px, 3vw, 32px); }
+.hero-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; min-width: 0; }
+.chip { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 999px; background: var(--secondary-c); color: var(--on-secondary-c); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.02em; }
+h1 { font-family: var(--font-display); font-weight: 500; font-size: clamp(2.4rem, 6vw, 4rem); line-height: 1.04; letter-spacing: -0.03em; text-wrap: balance; }
+h1 em { font-style: normal; color: var(--primary); }
+.lead { max-width: 46ch; font-size: 1.125rem; color: var(--fg-muted); }
+.cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+
+/* theme preview */
+.stage { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.win { display: grid; grid-template-columns: 64px minmax(0, 1fr); background: var(--surface-1); border-radius: 28px; overflow: hidden; }
+.rail { background: var(--surface-2); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0; }
+.rail span { width: 40px; height: 40px; border-radius: 14px; display: grid; place-items: center; }
+.rail span::before { content: ""; width: 14px; height: 14px; border-radius: 4px; background: var(--fg-muted); opacity: 0.55; }
+.rail span.on { background: var(--primary-c); }
+.rail span.on::before { background: var(--on-primary-c); opacity: 1; }
+.pane { display: flex; flex-direction: column; gap: 10px; padding: 18px; min-width: 0; }
+.pane-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.pane-title { font-family: var(--font-display); font-weight: 500; font-size: 1.15rem; }
+.pane-tag { padding: 3px 10px; border-radius: 999px; background: var(--tertiary-c); color: var(--on-tertiary-c); font-size: 0.75rem; font-weight: 600; }
+.inst { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px; border-radius: 20px; background: var(--bg); }
+.ico { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; }
+.ico::after { content: ""; width: 18px; height: 18px; border-radius: 5px; }
+.ico.a { background: var(--primary-c); } .ico.a::after { background: var(--primary); }
+.ico.b { background: var(--tertiary-c); } .ico.b::after { background: var(--tertiary); }
+.ico.c { background: var(--secondary-c); } .ico.c::after { background: var(--on-secondary-c); opacity: 0.7; }
+.inst b { display: block; font-size: 0.95rem; font-weight: 600; line-height: 1.25; }
+.inst small { display: block; font-size: 0.8rem; color: var(--fg-muted); line-height: 1.3; }
+.play { display: inline-flex; align-items: center; height: 34px; padding: 0 16px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; background: var(--secondary-c); color: var(--on-secondary-c); }
+.play.main { background: var(--primary); color: var(--on-primary); }
+.picker { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.picker-label { font-size: 0.875rem; font-weight: 600; }
+.dots { display: flex; gap: 10px; }
+.dot { width: 34px; height: 34px; border-radius: 50%; background: var(--sw); }
+.dot[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg); }
+.picker-name { font-size: 0.875rem; color: var(--fg-muted); min-width: 7ch; }
+.note { font-size: 0.875rem; color: var(--fg-muted); max-width: 44ch; }
+
+/* features */
+.section-title { font-family: var(--font-display); font-weight: 500; font-size: clamp(1.6rem, 3.6vw, 2.2rem); letter-spacing: -0.02em; margin-bottom: 20px; text-wrap: balance; }
+.grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.card { grid-column: span 2; display: flex; flex-direction: column; gap: 12px; padding: 24px; border-radius: 28px; background: var(--surface-1); min-width: 0; }
+.card.wide { grid-column: span 3; }
+.card.c-primary { background: var(--primary-c); color: var(--on-primary-c); }
+.card.c-tertiary { background: var(--tertiary-c); color: var(--on-tertiary-c); }
+.ic { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: color-mix(in oklab, currentColor 12%, transparent); margin-bottom: 8px; }
+.ic svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.card h3 { font-family: var(--font-display); font-weight: 500; font-size: 1.35rem; letter-spacing: -0.01em; }
+.card p { opacity: 0.8; max-width: 38ch; }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 8px; }
+.tag { padding: 5px 13px; border-radius: 999px; font-size: 0.8125rem; font-weight: 500; box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 28%, transparent); }
+
+/* open source band */
+.open { display: grid; grid-template-columns: minmax(0, 1.3fr) auto; align-items: center; gap: 24px; padding: clamp(28px, 5vw, 52px); border-radius: 36px; background: var(--primary); color: var(--on-primary); }
+.open h2 { font-family: var(--font-display); font-weight: 500; font-size: clamp(1.6rem, 3.6vw, 2.3rem); letter-spacing: -0.02em; margin-bottom: 10px; text-wrap: balance; }
+.open p { opacity: 0.88; max-width: 48ch; }
+.open .cta { margin: 0; }
+
+footer { display: flex; flex-direction: column; gap: 6px; font-size: 0.8125rem; color: var(--fg-muted); padding-bottom: 8px; }
+footer a { text-underline-offset: 3px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  body, .card, .win, .rail, .inst, .btn, .open, .seg, .chip, .pill-link, .play, .ic { transition: background-color 0.35s ease, color 0.35s ease; }
+}
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: minmax(0, 1fr); }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card, .card.wide { grid-column: span 1; }
+  .card.wide, .card:last-child { grid-column: span 2; }
+  .open { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .card, .card.wide, .card:last-child { grid-column: auto; }
+  .pane { padding: 14px; }
+  .btn { flex: 1 1 auto; }
+}
+
+html[dir="rtl"] .lang-select {
+  padding: 7px 14px 7px 30px;
+  background-position: 16px 52%, 11px 52%;
+}
+html[dir="rtl"] .hero-copy { align-items: flex-start; }
+html[dir="rtl"] .card p { max-width: 42ch; }
+</style>
+
+<div class="page">
+  <header class="top">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+        <path class="rind" d="M3 11H29A13 13 0 0 1 3 11Z"/>
+        <path class="flesh" d="M6 11H26A10 10 0 0 1 6 11Z"/>
+        <ellipse class="seed" cx="12" cy="15" rx="1.3" ry="2" transform="rotate(-20 12 15)"/>
+        <ellipse class="seed" cx="16" cy="18" rx="1.3" ry="2"/>
+        <ellipse class="seed" cx="20" cy="15" rx="1.3" ry="2" transform="rotate(20 20 15)"/>
+      </svg>
+      <span>Arbuz Launcher</span>
+    </div>
+    <div class="top-actions">
+      <select class="lang-select" id="lang" aria-label="Language"></select>
+      <a class="pill-link" href="https://github.com/arbuzlauncher/arbuz-launcher">GitHub</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="chip" data-i18n="chip">Открытый код · GPL-3.0</span>
+      <h1 data-i18n="h1">Лаунчер для Minecraft <em>в твоих цветах</em></h1>
+      <p class="lead" data-i18n="lead">Arbuz Launcher ставит моды и сборки из CurseForge и Modrinth, помогает с вылетами и красит интерфейс в цвета Monet.</p>
+      <div class="cta">
+        <a class="btn btn-fill" href="https://github.com/arbuzlauncher/arbuz-launcher/releases">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>
+          <span data-i18n="dl">Скачать</span>
+        </a>
+        <a class="btn btn-tonal" href="https://github.com/arbuzlauncher/arbuz-launcher" data-i18n="src">Исходный код</a>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="win" aria-hidden="true">
+        <div class="rail"><span class="on"></span><span></span><span></span><span></span></div>
+        <div class="pane">
+          <div class="pane-top">
+            <span class="pane-title" data-i18n="win">Сборки</span>
+            <span class="pane-tag">Monet</span>
+          </div>
+          <div class="inst"><i class="ico a"></i><div><b>Survival</b><small>Fabric · 1.21.1</small></div><span class="play main" data-i18n="play">Играть</span></div>
+          <div class="inst"><i class="ico b"></i><div><b>Create</b><small>Forge · 1.20.1</small></div><span class="play" data-i18n="play">Играть</span></div>
+          <div class="inst"><i class="ico c"></i><div><b>Vanilla</b><small>1.8.9</small></div><span class="play" data-i18n="play">Играть</span></div>
+        </div>
+      </div>
+      <div class="picker">
+        <span class="picker-label" data-i18n="accent">Акцент</span>
+        <div class="dots" id="dots" role="group" aria-label="Accent color">
+          <button type="button" class="dot" data-h="15" style="--sw: oklch(0.62 0.18 15)" aria-pressed="true"></button>
+          <button type="button" class="dot" data-h="150" style="--sw: oklch(0.65 0.16 150)" aria-pressed="false"></button>
+          <button type="button" class="dot" data-h="245" style="--sw: oklch(0.62 0.15 245)" aria-pressed="false"></button>
+          <button type="button" class="dot" data-h="295" style="--sw: oklch(0.58 0.17 295)" aria-pressed="false"></button>
+          <button type="button" class="dot" data-h="65" style="--sw: oklch(0.72 0.14 65)" aria-pressed="false"></button>
+        </div>
+        <span class="picker-name" id="seed-name">Арбуз</span>
+      </div>
+      <p class="note" data-i18n="note">Весь интерфейс строится от одного акцента. Выбери свой.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title" data-i18n="inside">Что внутри</h2>
+    <div class="grid">
+      <article class="card wide c-primary">
+        <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9L11 3z"/><path d="M19 15v5M16.5 17.5h5"/></svg></div>
+        <h3 data-i18n="f1t">ИИ-помощник</h3>
+        <p data-i18n="f1p">Помогает собрать сборку и разобраться, почему игра вылетает.</p>
+      </article>
+      <article class="card wide c-tertiary">
+        <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H17a4 4 0 0 0 4-4c0-4.4-4-8.2-9-8.2z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10" cy="7.5" r="1"/><circle cx="14.5" cy="7.5" r="1"/></svg></div>
+        <h3 data-i18n="f2t">Темы Monet</h3>
+        <p data-i18n="f2p">Цвета интерфейса строятся от одного акцента, как в Material You. Есть и другие темы.</p>
+      </article>
+      <article class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg></div>
+        <h3 data-i18n="f3t">CurseForge и Modrinth</h3>
+        <p data-i18n="f3p">Ищи и ставь моды и сборки из обоих каталогов, не выходя из лаунчера.</p>
+      </article>
+      <article class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/></svg></div>
+        <h3 data-i18n="f4t">Любой аккаунт</h3>
+        <p data-i18n="f4p">Войди через Microsoft, Ely.by или LittleSkin либо играй офлайн.</p>
+        <div class="tags"><span class="tag">Microsoft</span><span class="tag">Ely.by</span><span class="tag">LittleSkin</span><span class="tag" data-i18n="offline">Офлайн</span></div>
+      </article>
+      <article class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/></svg></div>
+        <h3 data-i18n="f5t">Много языков</h3>
+        <p data-i18n="f5p">Интерфейс доступен на многих языках.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="open">
+    <div>
+      <h2 data-i18n="ot">Открытый код под GPL-3.0</h2>
+      <p data-i18n="op">Исходники, релизы и обсуждения живут на GitHub. Нашёл ошибку или есть идея, открой issue.</p>
+    </div>
+    <div class="cta">
+      <a class="btn btn-inv" href="https://github.com/arbuzlauncher/arbuz-launcher" data-i18n="repo">Репозиторий</a>
+      <a class="btn btn-line" href="https://github.com/arbuzlauncher/arbuz-launcher/issues" data-i18n="bug">Сообщить об ошибке</a>
+    </div>
+  </section>
+
+  <footer>
+    <span>Arbuz Launcher · GPL-3.0 · <a href="https://github.com/arbuzlauncher/arbuz-launcher">github.com/arbuzlauncher/arbuz-launcher</a></span>
+    <span data-i18n="legal">Minecraft — торговая марка Mojang Studios. Arbuz Launcher не связан с Mojang Studios и Microsoft.</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var I18N = {
+  "ru": {
+    "chip": "Открытый код · GPL-3.0",
+    "h1": "Лаунчер для Minecraft <em>в твоих цветах</em>",
+    "lead": "Arbuz Launcher ставит моды и сборки из CurseForge и Modrinth, помогает с вылетами и красит интерфейс в цвета Monet.",
+    "dl": "Скачать",
+    "src": "Исходный код",
+    "win": "Сборки",
+    "play": "Играть",
+    "accent": "Акцент",
+    "note": "Весь интерфейс строится от одного акцента. Выбери свой.",
+    "inside": "Что внутри",
+    "f1t": "ИИ-помощник",
+    "f1p": "Помогает собрать сборку и разобраться, почему игра вылетает.",
+    "f2t": "Темы Monet",
+    "f2p": "Цвета интерфейса строятся от одного акцента, как в Material You. Есть и другие темы.",
+    "f3t": "CurseForge и Modrinth",
+    "f3p": "Ищи и ставь моды и сборки из обоих каталогов, не выходя из лаунчера.",
+    "f4t": "Любой аккаунт",
+    "f4p": "Войди через Microsoft, Ely.by или LittleSkin либо играй офлайн.",
+    "offline": "Офлайн",
+    "f5t": "Много языков",
+    "f5p": "Интерфейс доступен на многих языках.",
+    "ot": "Открытый код под GPL-3.0",
+    "op": "Исходники, релизы и обсуждения живут на GitHub. Нашёл ошибку или есть идея, открой issue.",
+    "repo": "Репозиторий",
+    "bug": "Сообщить об ошибке",
+    "legal": "Minecraft — торговая марка Mojang Studios. Arbuz Launcher не связан с Mojang Studios и Microsoft.",
+    "seed.15": "Арбуз",
+    "seed.65": "Мёд",
+    "seed.150": "Мята",
+    "seed.245": "Океан",
+    "seed.295": "Слива"
+  },
+  "en": {
+    "chip": "Open source · GPL-3.0",
+    "h1": "A Minecraft launcher <em>in your colors</em>",
+    "lead": "Arbuz Launcher installs mods and modpacks from CurseForge and Modrinth, helps with crashes, and paints the interface in Monet colors.",
+    "dl": "Download",
+    "src": "Source code",
+    "win": "Instances",
+    "play": "Play",
+    "accent": "Accent",
+    "note": "The whole interface is built from one accent. Pick yours.",
+    "inside": "What's inside",
+    "f1t": "AI helper",
+    "f1p": "Helps you put a modpack together and figure out why the game crashes.",
+    "f2t": "Monet themes",
+    "f2p": "Interface colors are built from a single accent, like Material You. Other themes are included.",
+    "f3t": "CurseForge and Modrinth",
+    "f3p": "Search and install mods and modpacks from both catalogs without leaving the launcher.",
+    "f4t": "Any account",
+    "f4p": "Sign in with Microsoft, Ely.by or LittleSkin, or play offline.",
+    "offline": "Offline",
+    "f5t": "Many languages",
+    "f5p": "The interface is available in many languages.",
+    "ot": "Open source under GPL-3.0",
+    "op": "Source code, releases and discussions live on GitHub. Found a bug or have an idea? Open an issue.",
+    "repo": "Repository",
+    "bug": "Report a bug",
+    "legal": "Minecraft is a trademark of Mojang Studios. Arbuz Launcher is not affiliated with Mojang Studios or Microsoft.",
+    "seed.15": "Watermelon",
+    "seed.65": "Honey",
+    "seed.150": "Mint",
+    "seed.245": "Ocean",
+    "seed.295": "Plum"
+  },
+  "fa": {
+    "chip": "منبع باز · GPL-3.0",
+    "h1": "یک راه‌انداز Minecraft <em>در رنگ‌های شما</em>",
+    "lead": "Arbuz Launcher مودها و مودپک ها را از CurseForge و Modrinth نصب می کند، به خرابی ها کمک می کند و رابط را به رنگ های Monet رنگ می کند.",
+    "dl": "دانلود کنید",
+    "src": "کد منبع",
+    "win": "نسخه‌ها",
+    "play": "بازی",
+    "accent": "رنگ تأکیدی",
+    "note": "کل رابط از یک رنگ تأکیدی ساخته شده است. رنگ خود را انتخاب کنید.",
+    "inside": "داخلش چیست",
+    "f1t": "دستیار هوش مصنوعی",
+    "f1p": "به شما کمک می کند تا یک modpack را کنار هم قرار دهید و بفهمید که چرا بازی خراب می شود.",
+    "f2t": "تم‌های Monet",
+    "f2p": "رنگ‌های رابط از یک رنگ تأکیدی ساخته می‌شوند، مانند Material You. تم‌های دیگر هم موجودند.",
+    "f3t": "CurseForge و Modrinth",
+    "f3p": "بدون خروج از لانچر، مودها و مودپک ها را از هر دو کاتالوگ جستجو و نصب کنید.",
+    "f4t": "هر حسابی",
+    "f4p": "با Microsoft، Ely.by یا LittleSkin وارد شوید یا به صورت آفلاین بازی کنید.",
+    "offline": "آفلاین",
+    "f5t": "زبان‌های متعدد",
+    "f5p": "رابط به زبان های زیادی در دسترس است.",
+    "ot": "منبع باز تحت GPL-3.0",
+    "op": "کد منبع، نسخه‌ها و بحث‌ها در GitHub هستند. باگی پیدا کردید یا ایده‌ای دارید؟ گزارش باز کنید.",
+    "repo": "مخزن",
+    "bug": "گزارش یک اشکال",
+    "legal": "Minecraft علامت تجاری Mojang Studios است. Arbuz Launcher وابسته به Mojang Studios یا Microsoft نیست.",
+    "seed.15": "هندوانه",
+    "seed.65": "عسل",
+    "seed.150": "نعناع",
+    "seed.245": "اقیانوس",
+    "seed.295": "آلو"
+  },
+  "ar": {
+    "chip": "مفتوح المصدر · GPL-3.0",
+    "h1": "مشغل Minecraft <em>بالألوان التي تفضلها</em>",
+    "lead": "يقوم Arbuz Launcher بتثبيت التعديلات وحزم التعديل من CurseForge وModrinth، ويساعد في حل الأعطال، ويرسم الواجهة بألوان Monet.",
+    "dl": "تحميل",
+    "src": "كود المصدر",
+    "win": "المثيلات",
+    "play": "العب",
+    "accent": "لون التمييز",
+    "note": "الواجهة بأكملها مبنية على لون تمييز واحد. اختر لونك.",
+    "inside": "ماذا يوجد بالداخل",
+    "f1t": "مساعد الذكاء الاصطناعي",
+    "f1p": "يساعدك على تجميع حزمة modpack معًا ومعرفة سبب تعطل اللعبة.",
+    "f2t": "سمات Monet",
+    "f2p": "تُبنى ألوان الواجهة من لون تمييز واحد، مثل Material You. السمات الأخرى مضمنة.",
+    "f3t": "CurseForge وModrinth",
+    "f3p": "ابحث عن التعديلات وحزم التعديل وقم بتثبيتها من كلا الكتالوجين دون مغادرة المشغّل.",
+    "f4t": "أي حساب",
+    "f4p": "قم بتسجيل الدخول باستخدام Microsoft أو Ely.by أو LittleSkin أو العب دون الاتصال بالإنترنت.",
+    "offline": "غير متصل",
+    "f5t": "العديد من اللغات",
+    "f5p": "الواجهة متاحة بالعديد من اللغات.",
+    "ot": "مفتوح المصدر تحت GPL-3.0",
+    "op": "كود المصدر والإصدارات والمناقشات على GitHub. هل وجدت خطأً أو لديك فكرة؟ افتح بلاغًا.",
+    "repo": "مستودع",
+    "bug": "الإبلاغ عن خطأ",
+    "legal": "Minecraft هي علامة تجارية مملوكة لشركة Mojang Studios. لا ينتمي Arbuz Launcher إلى Mojang Studios أو Microsoft.",
+    "seed.15": "بطيخ",
+    "seed.65": "عسل",
+    "seed.150": "نعناع",
+    "seed.245": "محيط",
+    "seed.295": "البرقوق"
+  },
+  "he": {
+    "chip": "קוד פתוח · GPL-3.0",
+    "h1": "משגר Minecraft <em>בצבעים שלך</em>",
+    "lead": "Arbuz Launcher מתקין מודים ו-modpacks מ-CurseForge ו-Modrinth, מסייע בקריסות וצובע את הממשק בצבעי Monet.",
+    "dl": "הורד",
+    "src": "קוד מקור",
+    "win": "מופעים",
+    "play": "שחק",
+    "accent": "צבע הדגשה",
+    "note": "כל הממשק בנוי מצבע הדגשה אחד. בחרו את שלכם.",
+    "inside": "מה יש בפנים",
+    "f1t": "עוזר AI",
+    "f1p": "עוזר לך להרכיב ערכת modpack ולהבין מדוע המשחק קורס.",
+    "f2t": "ערכות נושא של Monet",
+    "f2p": "צבעי הממשק בנויים מצבע הדגשה אחד, כמו Material You. ערכות נושא נוספות כלולות.",
+    "f3t": "CurseForge ו-Modrinth",
+    "f3p": "חפש והתקן אופנים ו-modpacks משני הקטלוגים מבלי לעזוב את המשגר.",
+    "f4t": "כל חשבון",
+    "f4p": "היכנס באמצעות Microsoft, Ely.by או LittleSkin, או שחק במצב לא מקוון.",
+    "offline": "לא מקוון",
+    "f5t": "שפות רבות",
+    "f5p": "הממשק זמין בשפות רבות.",
+    "ot": "קוד פתוח תחת GPL-3.0",
+    "op": "קוד המקור, המהדורות והדיונים ב-GitHub. מצאתם באג או שיש לכם רעיון? פתחו תקלה.",
+    "repo": "מאגר",
+    "bug": "דווח על באג",
+    "legal": "Minecraft הוא סימן מסחרי של Mojang Studios. Arbuz Launcher אינו מזוהה עם Mojang Studios או Microsoft.",
+    "seed.15": "אבטיח",
+    "seed.65": "דבש",
+    "seed.150": "מנטה",
+    "seed.245": "ים",
+    "seed.295": "שזיף"
+  },
+  "az": {
+    "chip": "Açıq mənbə · GPL-3.0",
+    "h1": "Minecraft başlatıcısı <em>rənglərinizdə</em>",
+    "lead": "Arbuz Launcher CurseForge və Modrinth-dən mods və modpaketlər quraşdırır, qəzalarda kömək edir və interfeysi Monet rənglərində rəngləyir.",
+    "dl": "Yüklə",
+    "src": "Mənbə kodu",
+    "win": "Qurğular",
+    "play": "Oyna",
+    "accent": "Vurğu rəngi",
+    "note": "Bütün interfeys bir vurğu rəngindən qurulub. Öz rənginizi seçin.",
+    "inside": "İçində nə var",
+    "f1t": "AI köməkçisi",
+    "f1p": "Mod paketini bir yerə yığmağa və oyunun niyə çökdüyünü anlamağa kömək edir.",
+    "f2t": "Monet mövzuları",
+    "f2p": "İnterfeys rəngləri Material You kimi tək vurğu rəngindən qurulur. Digər mövzular da daxildir.",
+    "f3t": "CurseForge və Modrinth",
+    "f3p": "Başlatıcıdan çıxmadan hər iki kataloqdan modlar və modpaketləri axtarın və quraşdırın.",
+    "f4t": "İstənilən hesab",
+    "f4p": "Microsoft, Ely.by və ya LittleSkin ilə daxil olun və ya oflayn oynayın.",
+    "offline": "Oflayn",
+    "f5t": "Bir çox dillər",
+    "f5p": "İnterfeys bir çox dillərdə mövcuddur.",
+    "ot": "GPL-3.0 altında açıq mənbə",
+    "op": "Mənbə kodu, buraxılışlar və müzakirələr GitHub-da canlı yayımlanır. Bir səhv tapdınız və ya bir fikriniz var? Məsələni açın.",
+    "repo": "Repozitoriya",
+    "bug": "Səhv barədə məlumat verin",
+    "legal": "Minecraft Mojang Studios-un ticarət nişanıdır. Arbuz Launcher Mojang Studios və ya Microsoft ilə əlaqəli deyil.",
+    "seed.15": "Qarpız",
+    "seed.65": "bal",
+    "seed.150": "nanə",
+    "seed.245": "Okean",
+    "seed.295": "gavalı"
+  },
+  "hy": {
+    "chip": "Բաց կոդ · GPL-3.0",
+    "h1": "Minecraft գործարկիչ <em>ձեր գույներով</em>",
+    "lead": "Arbuz Launcher-ը տեղադրում է մոդերներ և մոդփաթեր CurseForge-ից և Modrinth-ից, օգնում է խափանումներին և ներկում ինտերֆեյսը Monet գույներով:",
+    "dl": "Բեռնել",
+    "src": "Աղբյուրի կոդը",
+    "win": "Տեղադրումներ",
+    "play": "Խաղալ",
+    "accent": "Ընդգծման գույն",
+    "note": "Ամբողջ ինտերֆեյսը կառուցված է մեկ ընդգծման գույնից: Ընտրեք ձերը:",
+    "inside": "Ինչ կա ներսում",
+    "f1t": "AI օգնական",
+    "f1p": "Օգնում է ձեզ հավաքել modpack-ը և պարզել, թե ինչու է խաղը խափանում:",
+    "f2t": "Monet թեմաներ",
+    "f2p": "Ինտերֆեյսի գույները կառուցված են մեկ ընդգծման գույնից, ինչպես Material You-ում: Այլ թեմաներ նույնպես ներառված են:",
+    "f3t": "CurseForge և Modrinth",
+    "f3p": "Փնտրեք և տեղադրեք ռեժիմներ և մոդապարկեր երկու կատալոգներից՝ առանց գործարկիչից դուրս գալու:",
+    "f4t": "Ցանկացած հաշիվ",
+    "f4p": "Մուտք գործեք Microsoft-ի, Ely.by-ի կամ LittleSkin-ի միջոցով կամ խաղացեք անցանց:",
+    "offline": "Անցանց",
+    "f5t": "Բազմաթիվ լեզուներ",
+    "f5p": "Ինտերֆեյսը հասանելի է բազմաթիվ լեզուներով:",
+    "ot": "Բաց կոդով GPL-3.0-ի ներքո",
+    "op": "Աղբյուրի կոդը, թողարկումները և քննարկումներն ուղիղ եթերում են GitHub-ում: Գտե՞լ եք վրիպակ, թե՞ գաղափար ունեք: Բացեք խնդիր.",
+    "repo": "Պահեստարան",
+    "bug": "Հաղորդել սխալի մասին",
+    "legal": "Minecraft-ը Mojang Studios-ի ապրանքանիշն է: Arbuz Launcher-ը կապված չէ Mojang Studios-ի կամ Microsoft-ի հետ:",
+    "seed.15": "Ձմերուկ",
+    "seed.65": "Մեղր",
+    "seed.150": "Անանուխ",
+    "seed.245": "Օվկիանոս",
+    "seed.295": "Սալոր"
+  },
+  "pt": {
+    "chip": "Código aberto · GPL-3.0",
+    "h1": "Um lançador de Minecraft <em>nas suas cores</em>",
+    "lead": "Arbuz Launcher instala mods e modpacks de CurseForge e Modrinth, ajuda com travamentos e pinta a interface com as cores de Monet.",
+    "dl": "Download",
+    "src": "Código fonte",
+    "win": "Instâncias",
+    "play": "Jogar",
+    "accent": "Cor de destaque",
+    "note": "Toda a interface é construída a partir de uma cor de destaque. Escolha a sua.",
+    "inside": "O que há dentro",
+    "f1t": "Ajudante de IA",
+    "f1p": "Ajuda você a montar um modpack e descobrir por que o jogo trava.",
+    "f2t": "Temas de Monet",
+    "f2p": "As cores da interface são construídas a partir de uma única cor de destaque, como no Material You. Outros temas estão incluídos.",
+    "f3t": "CurseForge e Modrinth",
+    "f3p": "Pesquise e instale mods e modpacks de ambos os catálogos sem sair do inicializador.",
+    "f4t": "Qualquer conta",
+    "f4p": "Faça login com Microsoft, Ely.by ou LittleSkin ou jogue offline.",
+    "offline": "Off-line",
+    "f5t": "Muitos idiomas",
+    "f5p": "A interface está disponível em vários idiomas.",
+    "ot": "Código aberto sob GPL-3.0",
+    "op": "Código-fonte, versões e discussões no GitHub. Encontrou um bug ou tem uma ideia? Abra uma issue.",
+    "repo": "Repositório",
+    "bug": "Reportar um bug",
+    "legal": "Minecraft é uma marca registrada da Mojang Studios. Arbuz Launcher não é afiliado à Mojang Studios ou Microsoft.",
+    "seed.15": "Melancia",
+    "seed.65": "Mel",
+    "seed.150": "Hortelã",
+    "seed.245": "Oceano",
+    "seed.295": "Ameixa"
+  },
+  "pl": {
+    "chip": "Otwarte oprogramowanie GPL-3.0",
+    "h1": "Launcher dla gry Minecraft <em> w Twoich kolorach</em>",
+    "lead": "Arbuz Launcher instaluje mody i kompilacje z CurseForge i Modrinth, pomaga w przypadku awarii i maluje interfejs w kolorach Moneta.",
+    "dl": "Pobierać",
+    "src": "Kod źródłowy",
+    "win": "Zespoły",
+    "play": "Grać",
+    "accent": "Akcent",
+    "note": "Cały interfejs jest zbudowany z jednego punktu widzenia. Wybierz swój.",
+    "inside": "Co jest w środku",
+    "f1t": "Asystent AI",
+    "f1p": "Pomaga zbudować kompilację i dowiedzieć się, dlaczego gra się zawiesza.",
+    "f2t": "Motywy Moneta",
+    "f2p": "Kolorystyka interfejsu opiera się na jednym akcencie, jak w Material You. Są też inne tematy.",
+    "f3t": "CurseForge i Modrinth",
+    "f3p": "Wyszukaj i zainstaluj mody i zestawy z obu katalogów bez opuszczania programu uruchamiającego.",
+    "f4t": "Dowolne konto",
+    "f4p": "Zaloguj się przez Microsoft, Ely.by lub LittleSkin lub graj offline.",
+    "offline": "Nieaktywny",
+    "f5t": "Wiele języków",
+    "f5p": "Interfejs jest dostępny w wielu językach.",
+    "ot": "Otwarte oprogramowanie na licencji GPL-3.0",
+    "op": "Źródła, wydania i dyskusje na żywo w GitHub. Jeśli znajdziesz błąd lub masz pomysł, otwórz problem.",
+    "repo": "Magazyn",
+    "bug": "Zgłoś błąd",
+    "legal": "Minecraft jest znakiem towarowym firmy Mojang Studios. Arbuz Launcher nie jest powiązany z Mojang Studios ani Microsoft.",
+    "seed.15": "Arbuz",
+    "seed.65": "Miód",
+    "seed.150": "Mennica",
+    "seed.245": "Ocean",
+    "seed.295": "Śliwka"
+  },
+  "uk": {
+    "chip": "Відкритий код · GPL-3.0",
+    "h1": "Лаунчер для Minecraft <em>в твоїх кольорах</em>",
+    "lead": "Arbuz Launcher ставить моди та збірки з CurseForge та Modrinth, допомагає з вильотами та фарбує інтерфейс у кольори Monet.",
+    "dl": "Завантажити",
+    "src": "Вихідний код",
+    "win": "Складання",
+    "play": "Грати",
+    "accent": "Акцент",
+    "note": "Весь інтерфейс будується з одного акценту. Вибери свій.",
+    "inside": "Що всередині",
+    "f1t": "ІІ-помічник",
+    "f1p": "Допомагає зібрати збірку та розібратися, чому гра вилітає.",
+    "f2t": "Теми Monet",
+    "f2p": "Кольори інтерфейсу будуються від одного акценту, як у Material You. Є й інші теми.",
+    "f3t": "CurseForge та Modrinth",
+    "f3p": "Шукай і став моди та збірки з обох каталогів, не виходячи з лаунчера.",
+    "f4t": "Будь-який обліковий запис",
+    "f4p": "Увійди через Microsoft, Ely.by чи LittleSkin або грай офлайн.",
+    "offline": "Офлайн",
+    "f5t": "Багато мов",
+    "f5p": "Інтерфейс доступний багатьма мовами.",
+    "ot": "Відкритий код під GPL-3.0",
+    "op": "Вихідники, релізи та обговорення живуть на GitHub. Знайшов помилку чи є ідея, відкрий issue.",
+    "repo": "Репозиторій",
+    "bug": "Повідомити про помилку",
+    "legal": "Minecraft – торгова марка Mojang Studios. Arbuz Launcher не пов'язаний з Mojang Studios та Microsoft.",
+    "seed.15": "Кавун",
+    "seed.65": "Мед",
+    "seed.150": "М'ята",
+    "seed.245": "Океан",
+    "seed.295": "Слива"
+  },
+  "be": {
+    "chip": "Адкрыты код · GPL-3.0",
+    "h1": "Лаўнчар для Minecraft <em>у тваіх колерах</em>",
+    "lead": "Arbuz Launcher ставіць моды і зборкі з CurseForge і Modrinth, дапамагае з вылетамі і фарбуе інтэрфейс у колеры Monet.",
+    "dl": "Спампаваць",
+    "src": "Зыходны код",
+    "win": "Зборкі",
+    "play": "Гуляць",
+    "accent": "Акцэнт",
+    "note": "Увесь інтэрфейс будуецца ад аднаго акцэнта. Выберы свой.",
+    "inside": "Што ўнутры",
+    "f1t": "ІІ-памочнік",
+    "f1p": "Дапамагае сабраць зборку і разабрацца, чаму гульня вылятае.",
+    "f2t": "Тэмы Monet",
+    "f2p": "Колеры інтэрфейсу будуюцца ад аднаго акцэнту, як у Material You. Ёсць і іншыя тэмы.",
+    "f3t": "CurseForge і Modrinth",
+    "f3p": "Шукай і стаў моды і зборкі з абодвух каталогаў, не выходзячы з лаўнчара.",
+    "f4t": "Любы акаўнт",
+    "f4p": "Увайдзі праз Microsoft, Ely.by ці LittleSkin альбо гуляй афлайн.",
+    "offline": "Афлайн",
+    "f5t": "Шмат моў",
+    "f5p": "Інтэрфейс даступны на многіх мовах.",
+    "ot": "Адкрыты код пад GPL-3.0",
+    "op": "Зыходнікі, рэлізы і абмеркаванні жывуць на GitHub. Знайшоў памылку ці ёсць ідэя, адкрый issue.",
+    "repo": "Рэпазітар",
+    "bug": "Паведаміць пра памылку",
+    "legal": "Minecraft - гандлёвая марка Mojang Studios. Arbuz Launcher не злучаны з Mojang Studios і Microsoft.",
+    "seed.15": "Кавун",
+    "seed.65": "Мёд",
+    "seed.150": "Мята",
+    "seed.245": "Акіян",
+    "seed.295": "Сліва"
+  },
+  "sr": {
+    "chip": "ГПЛ-3.0 отвореног кода",
+    "h1": "Покретач за Минецрафт <em>у вашим бојама</em>",
+    "lead": "Арбуз Лаунцхер инсталира модове и гради са ЦурсеФорге и Модринтх, помаже код рушења и боји интерфејс у ​​Монет бојама.",
+    "dl": "Преузми",
+    "src": "Изворни код",
+    "win": "скупштине",
+    "play": "Играј",
+    "accent": "Аццент",
+    "note": "Цео интерфејс је изграђен из једног фокуса. Изаберите своје.",
+    "inside": "Шта је унутра",
+    "f1t": "АИ асистент",
+    "f1p": "Помаже у изградњи и откривању зашто се игра руши.",
+    "f2t": "Монет Теме",
+    "f2p": "Боје интерфејса су засноване на једном акценту, као у Материал Иоу. Има и других тема.",
+    "f3t": "ЦурсеФорге и Модринтх",
+    "f3p": "Претражујте и инсталирајте модове и склопове из оба каталога без напуштања покретача.",
+    "f4t": "Било који рачун",
+    "f4p": "Пријавите се преко Мицрософт, Ели.би или ЛиттлеСкин или играјте ван мреже.",
+    "offline": "Оффлине",
+    "f5t": "Многи језици",
+    "f5p": "Интерфејс је доступан на многим језицима.",
+    "ot": "Отворени извор под ГПЛ-3.0",
+    "op": "Извори, издања и дискусије уживо на ГитХуб-у. Ако пронађете грешку или имате идеју, отворите проблем.",
+    "repo": "Репозиторијум",
+    "bug": "Пријавите грешку",
+    "legal": "Минецрафт је заштитни знак Мојанг студија. Арбуз Лаунцхер није повезан са Мојанг Студиос или Мицрософт-ом.",
+    "seed.15": "лубеница",
+    "seed.65": "Душо",
+    "seed.150": "Минт",
+    "seed.245": "Оцеан",
+    "seed.295": "Шљива"
+  },
+  "sk": {
+    "chip": "Open source GPL-3.0",
+    "h1": "Launcher pre Minecraft <em>vo vašich farbách</em>",
+    "lead": "Arbuz Launcher inštaluje mody a zostavuje z CurseForge a Modrinth, pomáha pri pádoch a maľuje rozhranie vo farbách Monet.",
+    "dl": "Stiahnuť",
+    "src": "Zdrojový kód",
+    "win": "Zostavy",
+    "play": "Hrať",
+    "accent": "Prízvuk",
+    "note": "Celé rozhranie je postavené z jedného zamerania. Vyberte si tú svoju.",
+    "inside": "Čo je vo vnútri",
+    "f1t": "Asistent AI",
+    "f1p": "Pomáha zostaviť zostavu a zistiť, prečo hra padá.",
+    "f2t": "Monet motívy",
+    "f2p": "Farby rozhrania sú založené na jednom akcente, ako v Material You. Sú tu aj iné témy.",
+    "f3t": "CurseForge a Modrinth",
+    "f3p": "Vyhľadajte a nainštalujte mody a zostavy z oboch katalógov bez opustenia spúšťača.",
+    "f4t": "Akýkoľvek účet",
+    "f4p": "Prihláste sa cez Microsoft, Ely.by alebo LittleSkin alebo hrajte offline.",
+    "offline": "Offline",
+    "f5t": "Veľa jazykov",
+    "f5p": "Rozhranie je dostupné v mnohých jazykoch.",
+    "ot": "Open source pod GPL-3.0",
+    "op": "Zdroje, vydania a diskusie naživo na GitHub. Ak nájdete chybu alebo máte nápad, otvorte problém.",
+    "repo": "Úložisko",
+    "bug": "Nahlásiť chybu",
+    "legal": "Minecraft je ochranná známka spoločnosti Mojang Studios. Arbuz Launcher nie je prepojený s Mojang Studios alebo Microsoft.",
+    "seed.15": "Vodný melón",
+    "seed.65": "Zlato",
+    "seed.150": "Mincovňa",
+    "seed.245": "oceán",
+    "seed.295": "Slivka"
+  },
+  "eo": {
+    "chip": "Malferma fonto GPL-3.0",
+    "h1": "Lanĉilo por Minecraft <em>en viaj koloroj</em>",
+    "lead": "Arbuz Launcher instalas modifaĵojn kaj konstruojn de CurseForge kaj Modrinth, helpas kun kraŝoj kaj pentras la interfacon per Monet-koloroj.",
+    "dl": "Elŝutu",
+    "src": "Fontkodo",
+    "win": "Asembleoj",
+    "play": "Ludu",
+    "accent": "Akcento",
+    "note": "La tuta interfaco estas konstruita el unu fokuso. Elektu vian.",
+    "inside": "Kio estas ene",
+    "f1t": "AI-asistanto",
+    "f1p": "Helpas konstrui la konstruon kaj eltrovi kial la ludo kraŝas.",
+    "f2t": "Temoj de Monet",
+    "f2p": "Interfackoloroj baziĝas sur unu akcento, kiel en Material You. Estas ankaŭ aliaj temoj.",
+    "f3t": "CurseForge kaj Modrinth",
+    "f3p": "Serĉu kaj instalu modifaĵojn kaj arojn de ambaŭ katalogoj sen forlasi la lanĉilon.",
+    "f4t": "Ajna konto",
+    "f4p": "Ensalutu per Microsoft, Ely.by aŭ LittleSkin aŭ ludu eksterrete.",
+    "offline": "Senrete",
+    "f5t": "Multaj lingvoj",
+    "f5p": "La interfaco disponeblas en multaj lingvoj.",
+    "ot": "Malferma fonto sub GPL-3.0",
+    "op": "Fontoj, eldonoj kaj diskutoj vivas sur GitHub. Se vi trovas cimon aŭ havas ideon, malfermu problemon.",
+    "repo": "Deponejo",
+    "bug": "Raportu cimon",
+    "legal": "Minecraft estas varmarko de Mojang Studios. Arbuz Launcher ne estas aligita kun Mojang Studios aŭ Microsoft.",
+    "seed.15": "Akvomelono",
+    "seed.65": "Mielo",
+    "seed.150": "Mento",
+    "seed.245": "Oceano",
+    "seed.295": "Pruno"
+  },
+  "et": {
+    "chip": "Avatud lähtekoodiga GPL-3.0",
+    "h1": "Minecrafti käivitaja <em> teie värvides</em>",
+    "lead": "Arbuz Launcher installib CurseForge'i ja Modrinthi modifikatsioone ja ehitab, aitab krahhide korral ja värvib liidese Monet värvides.",
+    "dl": "Laadi alla",
+    "src": "Lähtekood",
+    "win": "Assambleed",
+    "play": "Mängi",
+    "accent": "Aktsent",
+    "note": "Kogu liides on üles ehitatud ühest fookusest. Valige oma.",
+    "inside": "Mis on sees",
+    "f1t": "AI assistent",
+    "f1p": "Aitab ehitada üles ja välja selgitada, miks mäng kokku jookseb.",
+    "f2t": "Monet teemad",
+    "f2p": "Liidese värvid põhinevad ühel aktsendil, nagu ka Material You puhul. Teemasid on ka teisi.",
+    "f3t": "CurseForge ja Modrinth",
+    "f3p": "Otsige ja installige mõlemast kataloogist modifikatsioone ja kooste ilma käivitusprogrammist lahkumata.",
+    "f4t": "Iga konto",
+    "f4p": "Logige sisse Microsofti, Ely.by või LittleSkini kaudu või mängige võrguühenduseta.",
+    "offline": "Võrguühenduseta",
+    "f5t": "Paljud keeled",
+    "f5p": "Liides on saadaval paljudes keeltes.",
+    "ot": "Avatud lähtekoodiga GPL-3.0",
+    "op": "Allikad, väljaanded ja arutelud on otseülekandes GitHubis. Kui leiate vea või teil on idee, avage probleem.",
+    "repo": "Hoidla",
+    "bug": "Teatage veast",
+    "legal": "Minecraft on firma Mojang Studios kaubamärk. Arbuz Launcher ei ole Mojang Studiosi ega Microsoftiga seotud.",
+    "seed.15": "Arbuus",
+    "seed.65": "Kallis",
+    "seed.150": "Mint",
+    "seed.245": "Ookean",
+    "seed.295": "Ploom"
+  },
+  "fi": {
+    "chip": "Avoimen lähdekoodin GPL-3.0",
+    "h1": "Minecraftin käynnistysohjelma <em> sinun väreissäsi</em>",
+    "lead": "Arbuz Launcher asentaa modit ja koontiversiot CurseForgesta ja Modrinthista, auttaa kaatumisissa ja maalaa käyttöliittymän Monet-väreillä.",
+    "dl": "Lataa",
+    "src": "Lähdekoodi",
+    "win": "Kokoonpanot",
+    "play": "Pelata",
+    "accent": "Aksentti",
+    "note": "Koko käyttöliittymä on rakennettu yhdestä painopisteestä. Valitse omasi.",
+    "inside": "Mitä on sisällä",
+    "f1t": "AI-avustaja",
+    "f1p": "Auttaa rakentamaan rakennetta ja selvittämään, miksi peli kaatuu.",
+    "f2t": "Monet teemat",
+    "f2p": "Käyttöliittymän värit perustuvat yhteen korostukseen, kuten Material You -sovelluksessa. Muitakin aiheita on.",
+    "f3t": "CurseForge ja Modrinth",
+    "f3p": "Etsi ja asenna modit ja kokoonpanot molemmista luetteloista poistumatta käynnistysohjelmasta.",
+    "f4t": "Mikä tahansa tili",
+    "f4p": "Kirjaudu sisään Microsoftin, Ely.byn tai LittleSkinin kautta tai pelaa offline-tilassa.",
+    "offline": "Offline-tilassa",
+    "f5t": "Monet kielet",
+    "f5p": "Käyttöliittymä on saatavilla useilla kielillä.",
+    "ot": "Avoin lähdekoodi GPL-3.0 alla",
+    "op": "Lähteet, julkaisut ja keskustelut livenä GitHubissa. Jos löydät virheen tai sinulla on idea, avaa ongelma.",
+    "repo": "Arkisto",
+    "bug": "Ilmoita virheestä",
+    "legal": "Minecraft on Mojang Studiosin tavaramerkki. Arbuz Launcher ei ole sidoksissa Mojang Studiosiin tai Microsoftiin.",
+    "seed.15": "Vesimeloni",
+    "seed.65": "Hunaja",
+    "seed.150": "Minttu",
+    "seed.245": "Valtameri",
+    "seed.295": "Luumu"
+  },
+  "fr": {
+    "chip": "GPL-3.0 open source",
+    "h1": "Lanceur pour Minecraft <em>à vos couleurs</em>",
+    "lead": "Arbuz Launcher installe les mods et les builds de CurseForge et Modrinth, aide en cas de crash et peint l'interface aux couleurs de Monet.",
+    "dl": "Télécharger",
+    "src": "Code source",
+    "win": "Assemblées",
+    "play": "Jouer",
+    "accent": "Accent",
+    "note": "L’ensemble de l’interface est construit à partir d’un seul objectif. Choisissez le vôtre.",
+    "inside": "Qu'y a-t-il à l'intérieur",
+    "f1t": "Assistant IA",
+    "f1p": "Aide à construire la version et à comprendre pourquoi le jeu plante.",
+    "f2t": "Thèmes Monet",
+    "f2p": "Les couleurs de l'interface sont basées sur un seul accent, comme dans Material You. Il y a aussi d'autres sujets.",
+    "f3t": "CurseForge et Modrinth",
+    "f3p": "Recherchez et installez des mods et des assemblys à partir des deux catalogues sans quitter le lanceur.",
+    "f4t": "N'importe quel compte",
+    "f4p": "Connectez-vous via Microsoft, Ely.by ou LittleSkin ou jouez hors ligne.",
+    "offline": "Hors ligne",
+    "f5t": "De nombreuses langues",
+    "f5p": "L'interface est disponible dans de nombreuses langues.",
+    "ot": "Open source sous GPL-3.0",
+    "op": "Sources, versions et discussions en direct sur GitHub. Si vous trouvez un bug ou avez une idée, ouvrez un ticket.",
+    "repo": "Dépôt",
+    "bug": "Signaler un bug",
+    "legal": "Minecraft est une marque déposée de Mojang Studios. Arbuz Launcher n'est pas affilié à Mojang Studios ou Microsoft.",
+    "seed.15": "Pastèque",
+    "seed.65": "Chéri",
+    "seed.150": "Menthe",
+    "seed.245": "Océan",
+    "seed.295": "Prune"
+  },
+  "de": {
+    "chip": "Open-Source-GPL-3.0",
+    "h1": "Launcher für Minecraft <em>in deinen Farben</em>",
+    "lead": "Arbuz Launcher installiert Mods und Builds von CurseForge und Modrinth, hilft bei Abstürzen und malt die Benutzeroberfläche in Monet-Farben.",
+    "dl": "Herunterladen",
+    "src": "Quellcode",
+    "win": "Versammlungen",
+    "play": "Spielen",
+    "accent": "Akzent",
+    "note": "Die gesamte Schnittstelle basiert auf einem Fokus. Wählen Sie Ihre.",
+    "inside": "Was ist drin?",
+    "f1t": "KI-Assistent",
+    "f1p": "Hilft beim Erstellen des Builds und herauszufinden, warum das Spiel abstürzt.",
+    "f2t": "Monet-Themen",
+    "f2p": "Die Farben der Benutzeroberfläche basieren auf einem Akzent, wie in Material You. Es gibt auch andere Themen.",
+    "f3t": "CurseForge und Modrinth",
+    "f3p": "Suchen und installieren Sie Mods und Assemblys aus beiden Katalogen, ohne den Launcher zu verlassen.",
+    "f4t": "Jedes Konto",
+    "f4p": "Melden Sie sich über Microsoft, Ely.by oder LittleSkin an oder spielen Sie offline.",
+    "offline": "Offline",
+    "f5t": "Viele Sprachen",
+    "f5p": "Die Benutzeroberfläche ist in vielen Sprachen verfügbar.",
+    "ot": "Open Source unter GPL-3.0",
+    "op": "Quellen, Veröffentlichungen und Diskussionen live auf GitHub. Wenn Sie einen Fehler finden oder eine Idee haben, öffnen Sie ein Problem.",
+    "repo": "Repository",
+    "bug": "Melden Sie einen Fehler",
+    "legal": "Minecraft ist eine Marke von Mojang Studios. Arbuz Launcher ist nicht mit Mojang Studios oder Microsoft verbunden.",
+    "seed.15": "Wassermelone",
+    "seed.65": "Honig",
+    "seed.150": "Minze",
+    "seed.245": "Ozean",
+    "seed.295": "Pflaume"
+  },
+  "lv": {
+    "chip": "Atvērtā koda GPL-3.0",
+    "h1": "Minecraft palaidējs <em> jūsu krāsās</em>",
+    "lead": "Arbuz Launcher instalē modifikācijas un versijas no CurseForge un Modrinth, palīdz novērst avārijas un krāso saskarni Monet krāsās.",
+    "dl": "Lejupielādēt",
+    "src": "Avota kods",
+    "win": "Asamblejas",
+    "play": "Spēlēt",
+    "accent": "Akcents",
+    "note": "Visa saskarne ir veidota no viena fokusa. Izvēlieties savu.",
+    "inside": "Kas ir iekšā",
+    "f1t": "AI palīgs",
+    "f1p": "Palīdz izveidot versiju un noskaidrot, kāpēc spēle avarē.",
+    "f2t": "Monē tēmas",
+    "f2p": "Interfeisa krāsas ir balstītas uz vienu akcentu, tāpat kā programmā Material You. Ir arī citas tēmas.",
+    "f3t": "CurseForge un Modrinth",
+    "f3p": "Meklējiet un instalējiet modifikācijas un komplektus abos katalogos, neizejot no palaišanas programmas.",
+    "f4t": "Jebkurš konts",
+    "f4p": "Piesakieties, izmantojot Microsoft, Ely.by vai LittleSkin, vai spēlējiet bezsaistē.",
+    "offline": "Bezsaistē",
+    "f5t": "Daudzas valodas",
+    "f5p": "Interfeiss ir pieejams daudzās valodās.",
+    "ot": "Atvērtais avots saskaņā ar GPL-3.0",
+    "op": "Avoti, izlaidumi un diskusijas tiešraidē GitHub. Ja atrodat kļūdu vai jums ir ideja, atveriet problēmu.",
+    "repo": "Repozitorijs",
+    "bug": "Ziņot par kļūdu",
+    "legal": "Minecraft ir Mojang Studios preču zīme. Arbuz Launcher nav saistīts ar Mojang Studios vai Microsoft.",
+    "seed.15": "Arbūzs",
+    "seed.65": "Mīļā",
+    "seed.150": "Piparmētra",
+    "seed.245": "Okeāns",
+    "seed.295": "Plūme"
+  },
+  "lt": {
+    "chip": "Atvirojo kodo GPL-3.0",
+    "h1": "Minecraft paleidimo priemonė <em>jūsų spalvomis</em>",
+    "lead": "„Arbuz Launcher“ įdiegia modifikacijas ir kūrimą iš „CurseForge“ ir „Modrinth“, padeda su gedimais ir nudažo sąsają Monet spalvomis.",
+    "dl": "Atsisiųsti",
+    "src": "Šaltinio kodas",
+    "win": "Asamblėjai",
+    "play": "Žaisti",
+    "accent": "Akcentas",
+    "note": "Visa sąsaja sukurta iš vieno fokuso. Pasirinkite savo.",
+    "inside": "Kas viduje",
+    "f1t": "AI asistentas",
+    "f1p": "Padeda sukurti konstrukciją ir išsiaiškinti, kodėl žaidimas užstringa.",
+    "f2t": "Monet temos",
+    "f2p": "Sąsajos spalvos pagrįstos vienu akcentu, kaip ir Material You. Yra ir kitų temų.",
+    "f3t": "CurseForge ir Modrinth",
+    "f3p": "Ieškokite ir įdiekite modifikacijas ir rinkinius iš abiejų katalogų neišeidami iš paleidimo priemonės.",
+    "f4t": "Bet kokia paskyra",
+    "f4p": "Prisijunkite naudodami „Microsoft“, „Ely.by“ arba „LittleSkin“ arba žaiskite neprisijungę.",
+    "offline": "Neprisijungus",
+    "f5t": "Daug kalbų",
+    "f5p": "Sąsaja pasiekiama daugeliu kalbų.",
+    "ot": "Atviras šaltinis pagal GPL-3.0",
+    "op": "Šaltiniai, leidimai ir diskusijos tiesiogiai „GitHub“. Jei radote klaidą arba turite idėją, atidarykite problemą.",
+    "repo": "Saugykla",
+    "bug": "Pranešti apie klaidą",
+    "legal": "„Minecraft“ yra „Mojang Studios“ prekės ženklas. „Arbuz Launcher“ nėra susijusi su „Mojang Studios“ ar „Microsoft“.",
+    "seed.15": "Arbūzas",
+    "seed.65": "Mieloji",
+    "seed.150": "Mėtų",
+    "seed.245": "Vandenynas",
+    "seed.295": "Slyva"
+  },
+  "zh": {
+    "chip": "开源 GPL-3.0",
+    "h1": "Minecraft 启动器<em>你的颜色",
+    "lead": "Arbuz Launcher 安装来自 CurseForge 和 Modrinth 的模组和构建，有助于解决崩溃问题并以莫奈颜色绘制界面。",
+    "dl": "下载",
+    "src": "源代码",
+    "win": "组件",
+    "play": "玩",
+    "accent": "口音",
+    "note": "整个界面都是从一个焦点构建的。选择你的。",
+    "inside": "里面有什么",
+    "f1t": "人工智能助手",
+    "f1p": "帮助构建并找出游戏崩溃的原因。",
+    "f2t": "莫奈主题",
+    "f2p": "界面颜色基于一种强调，如 Material You 中那样。还有其他主题。",
+    "f3t": "CurseForge 和莫德林斯",
+    "f3p": "无需离开启动器即可从两个目录中搜索并安装模组和程序集。",
+    "f4t": "任何账户",
+    "f4p": "通过 Microsoft、Ely.by 或 LittleSkin 登录或离线玩。",
+    "offline": "离线",
+    "f5t": "多种语言",
+    "f5p": "该界面有多种语言版本。",
+    "ot": "GPL-3.0 下的开源",
+    "op": "来源、发布和讨论均位于 GitHub 上。如果您发现错误或有想法，请提出问题。",
+    "repo": "存储库",
+    "bug": "报告错误",
+    "legal": "Minecraft 是 Mojang Studios 的商标。 Arbuz Launcher 不隶属于 Mojang Studios 或 Microsoft。",
+    "seed.15": "西瓜",
+    "seed.65": "蜂蜜",
+    "seed.150": "薄荷",
+    "seed.245": "海洋",
+    "seed.295": "李子"
+  },
+  "ja": {
+    "chip": "オープンソース GPL-3.0",
+    "h1": "Minecraft 用ランチャー <em>あなたの色で</em>",
+    "lead": "Arbuz Launcher は、CurseForge と Modrinth から MOD をインストールしてビルドし、クラッシュを解決し、インターフェイスをモネ色でペイントします。",
+    "dl": "ダウンロード",
+    "src": "ソースコード",
+    "win": "アセンブリ",
+    "play": "遊ぶ",
+    "accent": "アクセント",
+    "note": "インターフェイス全体は 1 つの焦点から構築されています。あなたのものを選んでください。",
+    "inside": "中には何が入っているのか",
+    "f1t": "AIアシスタント",
+    "f1p": "ビルドを構築し、ゲームがクラッシュする理由を解明するのに役立ちます。",
+    "f2t": "モネのテーマ",
+    "f2p": "インターフェイスの色は、マテリアル ユーと同様に 1 つのアクセントに基づいています。他のトピックもあります。",
+    "f3t": "CurseForgeとモドリンス",
+    "f3p": "ランチャーを離れることなく、両方のカタログから MOD とアセンブリを検索してインストールします。",
+    "f4t": "任意のアカウント",
+    "f4p": "Microsoft、Ely.by、または LittleSkin を通じてログインするか、オフラインでプレイしてください。",
+    "offline": "オフライン",
+    "f5t": "多くの言語",
+    "f5p": "インターフェースは多くの言語で利用できます。",
+    "ot": "GPL-3.0に基づくオープンソース",
+    "op": "ソース、リリース、ディスカッションは GitHub で公開されています。バグを見つけた場合やアイデアがある場合は、問題を開いてください。",
+    "repo": "リポジトリ",
+    "bug": "バグを報告する",
+    "legal": "Minecraft は Mojang Studios の商標です。 Arbuz Launcher は Mojang Studios または Microsoft と提携していません。",
+    "seed.15": "スイカ",
+    "seed.65": "ハニー",
+    "seed.150": "ミント",
+    "seed.245": "海",
+    "seed.295": "梅"
+  },
+  "kk": {
+    "chip": "Ашық бастапқы GPL-3.0",
+    "h1": "Minecraft-қа арналған қосқыш <em>өз түстеріңізде</em>",
+    "lead": "Arbuz Launcher CurseForge және Modrinth модульдерін орнатады және құрастырады, бұзылуларға көмектеседі және интерфейсті Моне түстеріне бояйды.",
+    "dl": "Жүктеп алу",
+    "src": "Бастапқы код",
+    "win": "Ассамблеялар",
+    "play": "Ойнау",
+    "accent": "Акцент",
+    "note": "Бүкіл интерфейс бір фокустан құрастырылған. Өзіңдікі.",
+    "inside": "Ішінде не бар",
+    "f1t": "AI көмекшісі",
+    "f1p": "Құрылымды құруға және ойынның неліктен бұзылатынын анықтауға көмектеседі.",
+    "f2t": "Моне тақырыптары",
+    "f2p": "Интерфейс түстері Material You сияқты бір екпінге негізделген. Басқа тақырыптар да бар.",
+    "f3t": "CurseForge және Модринт",
+    "f3p": "Іске қосу құрылғысынан шықпай-ақ екі каталогтан режимдер мен жинақтарды іздеңіз және орнатыңыз.",
+    "f4t": "Кез келген есептік жазба",
+    "f4p": "Microsoft, Ely.by немесе LittleSkin арқылы кіріңіз немесе офлайн ойнаңыз.",
+    "offline": "Офлайн",
+    "f5t": "Көптеген тілдер",
+    "f5p": "Интерфейс көптеген тілдерде қол жетімді.",
+    "ot": "GPL-3.0 бойынша ашық дереккөз",
+    "op": "Дереккөздер, шығарылымдар және талқылаулар GitHub сайтында тікелей эфирде. Қатені тапсаңыз немесе идеяңыз болса, мәселені ашыңыз.",
+    "repo": "Репозиторий",
+    "bug": "Қате туралы хабарлау",
+    "legal": "Minecraft - Mojang Studios компаниясының сауда белгісі. Arbuz Launcher Mojang Studios немесе Microsoft корпорациясымен байланысты емес.",
+    "seed.15": "Қарбыз",
+    "seed.65": "Бал",
+    "seed.150": "Жалбыз",
+    "seed.245": "Мұхит",
+    "seed.295": "Алхоры"
+  },
+  "ky": {
+    "chip": "Ачык булак GPL-3.0",
+    "h1": "Minecraft үчүн ишке киргизгич <em>өзүңүздүн түстөрүңүздө</em>",
+    "lead": "Arbuz Launcher CurseForge жана Modrinth'тен модтарды орнотуп, курат, бузулууларга жардам берет жана интерфейсти Моне түстөрүнө боёйт.",
+    "dl": "Жүктөп алуу",
+    "src": "Булак коду",
+    "win": "Ассамблеялар",
+    "play": "Play",
+    "accent": "Акцент",
+    "note": "Бүт интерфейс бир фокустан курулган. Өзүңдү танда.",
+    "inside": "Ичинде эмне бар",
+    "f1t": "AI жардамчысы",
+    "f1p": "Курулушту курууга жана оюн эмне үчүн бузулуп жатканын түшүнүүгө жардам берет.",
+    "f2t": "Моне темалары",
+    "f2p": "Интерфейс түстөрү Material You сыяктуу бир акцентке негизделген. Башка темалар да бар.",
+    "f3t": "CurseForge жана Модринт",
+    "f3p": "Ишке киргизгичтен чыкпай туруп, эки каталогдон модулдарды жана ассамблеяларды издеп жана орнотуңуз.",
+    "f4t": "Ар кандай эсеп",
+    "f4p": "Microsoft, Ely.by же LittleSkin аркылуу кириңиз же оффлайн режиминде ойноңуз.",
+    "offline": "Оффлайн",
+    "f5t": "Көп тилдер",
+    "f5p": "Интерфейс көптөгөн тилдерде жеткиликтүү.",
+    "ot": "GPL-3.0 боюнча ачык булак",
+    "op": "Булактар, релиздер жана талкуулар GitHub'та түз эфирде. Мүчүлүштүктөрдү тапсаңыз же идеяңыз болсо, маселени ачыңыз.",
+    "repo": "Репозиторий",
+    "bug": "Мүчүлүштүк тууралуу кабарлоо",
+    "legal": "Minecraft Mojang Studios соода белгиси болуп саналат. Arbuz Launcher Mojang Studios же Microsoft менен байланышы жок.",
+    "seed.15": "Дарбыз",
+    "seed.65": "Бал",
+    "seed.150": "Mint",
+    "seed.245": "Океан",
+    "seed.295": "Өрүк"
+  },
+  "uz": {
+    "chip": "Ochiq manba GPL-3.0",
+    "h1": "Minecraft uchun Launcher <em>ranglaringizda</em>",
+    "lead": "Arbuz Launcher CurseForge va Modrinth-dan modlarni o'rnatadi va quradi, buzilishlarda yordam beradi va interfeysni Monet ranglariga bo'yaydi.",
+    "dl": "Yuklab olish",
+    "src": "Manba kodi",
+    "win": "Assambleyalar",
+    "play": "O'ynang",
+    "accent": "Urg'u",
+    "note": "Butun interfeys bitta fokusdan qurilgan. O'zingiznikini tanlang.",
+    "inside": "Ichida nima bor",
+    "f1t": "AI yordamchisi",
+    "f1p": "Qurilishni yaratish va o'yin nima uchun ishdan chiqishini aniqlashga yordam beradi.",
+    "f2t": "Monet mavzular",
+    "f2p": "Interfeys ranglari Material You-da bo'lgani kabi bitta aksentga asoslangan. Boshqa mavzular ham bor.",
+    "f3t": "CurseForge va Modrinth",
+    "f3p": "Launcherdan chiqmasdan ikkala katalogdan modlar va yig'ilishlarni qidiring va o'rnating.",
+    "f4t": "Har qanday hisob",
+    "f4p": "Microsoft, Ely.by yoki LittleSkin orqali tizimga kiring yoki oflayn rejimda o'ynang.",
+    "offline": "Oflayn",
+    "f5t": "Ko'p tillar",
+    "f5p": "Interfeys ko'p tillarda mavjud.",
+    "ot": "GPL-3.0 ostida ochiq manba",
+    "op": "Manbalar, nashrlar va muhokamalar GitHub-da jonli. Agar xato topsangiz yoki fikringiz bo'lsa, masalani oching.",
+    "repo": "Repozitariy",
+    "bug": "Xato haqida xabar bering",
+    "legal": "Minecraft Mojang Studios kompaniyasining savdo belgisidir. Arbuz Launcher Mojang Studios yoki Microsoft bilan bog'liq emas.",
+    "seed.15": "Tarvuz",
+    "seed.65": "Asal",
+    "seed.150": "Yalpiz",
+    "seed.245": "Okean",
+    "seed.295": "olxo'ri"
+  },
+  "tg": {
+    "chip": "Манбаи кушода GPL-3.0",
+    "h1": "Launcher барои Minecraft <em>бо рангҳои худ</em>",
+    "lead": "Arbuz Launcher аз CurseForge ва Modrinth модулҳоро насб мекунад ва месозад, дар садамаҳо кӯмак мекунад ва интерфейсро бо рангҳои Моне ранг мекунад.",
+    "dl": "Зеркашӣ кунед",
+    "src": "Рамзи манбаъ",
+    "win": "Маҷлисҳо",
+    "play": "Бозӣ",
+    "accent": "Аксент",
+    "note": "Тамоми интерфейс аз як фокус сохта шудааст. Худро интихоб кунед.",
+    "inside": "Дар дохили он чӣ ҳаст",
+    "f1t": "Ёрдамчии AI",
+    "f1p": "Ба сохтани сохтмон ва фаҳмидани он ки чаро бозӣ вайрон мешавад, кӯмак мекунад.",
+    "f2t": "Мавзӯъҳои Моне",
+    "f2p": "Рангҳои интерфейс ба як аксент асос ёфтаанд, ба монанди Material You. Дигар мавзӯъҳо низ ҳастанд.",
+    "f3t": "CurseForge ва Модринт",
+    "f3p": "Модулҳо ва ассамблеяҳоро аз ҳарду каталог бидуни тарк кардани оғозкунанда ҷустуҷӯ ва насб кунед.",
+    "f4t": "Ҳар гуна ҳисоб",
+    "f4p": "Тавассути Microsoft, Ely.by ё LittleSkin ворид шавед ё офлайн бозӣ кунед.",
+    "offline": "Офлайн",
+    "f5t": "Бисёр забонҳо",
+    "f5p": "Интерфейс бо бисёр забонҳо дастрас аст.",
+    "ot": "Манбаи кушода дар доираи GPL-3.0",
+    "op": "Сарчашмаҳо, нашрҳо ва муҳокимаҳо дар GitHub зиндагӣ мекунанд. Агар шумо хатое пайдо кунед ё идеяе дошта бошед, масъаларо кушоед.",
+    "repo": "Анбор",
+    "bug": "Дар бораи хато хабар диҳед",
+    "legal": "Майнкрафт тамғаи тиҷоратии Mojang Studios аст. Arbuz Launcher бо Mojang Studios ё Microsoft алоқаманд нест.",
+    "seed.15": "Тарбуз",
+    "seed.65": "асал",
+    "seed.150": "пудинагӣ",
+    "seed.245": "Уқёнус",
+    "seed.295": "олу"
+  },
+  "iu": {
+    "chip": "ᒪᑐᐃᖓᔪᖅ ᑐᑭᓯᒋᐊᕐᕕᒃ GPL-3.0",
+    "h1": "ᓴᖅᑭᑦᑎᔾᔪᑎ Minecraft-ᒧᑦ <em>ᐊᒥᐊᕆᓯᒪᔭᕐᓂ</em>",
+    "lead": "Arbuz Launcher ᐋᖅᑭᒃᓯᕙᒃᐳᖅ ᐋᖅᑭᒋᐊᕈᑎᓂᒃ ᐊᒻᒪ ᓴᓇᕙᒃᐳᖅ CurseForge-ᑯᓐᓂᑦ ᐊᒻᒪ Modrinth-ᑯᓐᓂᑦ, ᐃᑲᔪᖅᐸᒃᐳᖅ ᑲᑕᒃᓯᒪᔪᓄᑦ ᐊᒻᒪ ᐊᒥᐊᕆᕙᒃᐳᖅ ᖃᕆᑕᐅᔭᒃᑯᑦ ᑕᑯᒃᓴᐅᓂᖓᓂᒃ ᒨᓂᐅᑉ ᐊᒥᐊᖏᓐᓂᑦ.",
+    "dl": "ᒥᓇᕆᓗᒍ",
+    "src": "ᓇᑭᙶᕐᒪᖔᖅ ᓇᓗᓇᐃᒃᑯᑕᖅ",
+    "win": "ᒪᓕᒐᓕᐅᕐᕕᒃ",
+    "play": "ᐱᙳᐊᕐᓂᖅ",
+    "accent": "ᑎᐱᖓ",
+    "note": "ᑖᓐᓇ ᓴᓇᔭᐅᓯᒪᔪᖅ ᐊᑕᐅᓯᕐᒥᒃ ᑕᐅᑐᒐᖃᖅᑐᓂ. ᓂᕈᐊᕐᓗᒍ ᐃᕝᕕᑦ.",
+    "inside": "ᑭᓱᑦ ᐃᓗᐊᓃᑉᐸᑦ",
+    "f1t": "AI-ᒧᑦ ᐃᑲᔪᖅᑎ",
+    "f1p": "ᐃᑲᔪᕐᓂᖃᖅᐳᖅ ᓴᓇᓂᕐᒥᒃ ᓴᓇᔭᐅᔪᒥᒃ ᐊᒻᒪ ᖃᐅᔨᓇᓱᐊᕐᓂᕐᒥᒃ ᓱᒻᒪᑦ ᐱᙳᐊᒐᖅ ᑲᑕᒻᒪᖔᖅ.",
+    "f2t": "ᒨᓂ ᑕᐃᒎᓯᖏᑦ",
+    "f2p": "ᑕᑯᒃᓴᐅᓂᖏᑦ ᐊᒥᐊᖏᑦ ᑐᙵᕕᖃᖅᐳᑦ ᐊᑕᐅᓯᕐᒥᒃ ᓂᐱᖃᕐᓂᕐᒥᒃ, ᓲᕐᓗ ᑕᕝᕙᓂ Material You-ᒥ. ᐊᓯᖏᓐᓂᒃ ᐅᖃᐅᓯᒃᓴᖅᑕᖃᕐᒥᔪᖅ.",
+    "f3t": "ᑯᐊᔅᕗᐊᔾ ᐊᒻᒪ ᒨᑐᕆᓐᑦ",
+    "f3p": "ᕿᓂᕐᓗᑎᑦ ᐋᖅᑭᒃᓯᓗᑎᓪᓗ ᐋᖅᑭᒋᐊᕈᑎᓂᒃ ᐊᒻᒪᓗ ᑲᑎᖅᓱᐃᔾᔪᑎᓂᒃ ᑕᒪᒃᑮᓐᓂᒃ ᑎᑎᕋᖅᓯᒪᔪᓂᒃ ᕿᒪᐃᙱᓪᓗᑎᑦ ᓴᖅᑭᔮᖅᑎᑦᑎᔾᔪᑎᒥᒃ.",
+    "f4t": "ᓇᓕᐊᑐᐃᓐᓇᖅ ᐊᑭᓕᒃᓴᖅ",
+    "f4p": "ᖃᕆᑕᐅᔭᒃᑯᑦ ᑎᑎᕋᕐᓗᑎᑦ ᒪᐃᑯᓵᕝᑯᑦ, Ely.by ᐅᕝᕙᓘᓐᓃᑦ ᓕᑐᓪᔅᑭᓐ ᐅᕝᕙᓘᓐᓃᑦ ᐱᙳᐊᕐᓗᑎᑦ ᖃᕆᑕᐅᔭᒃᑯᑦ.",
+    "offline": "ᖃᕆᑕᐅᔭᒃᑯᑦ",
+    "f5t": "ᐊᒥᓱᑦ ᐅᖃᐅᓰᑦ",
+    "f5p": "ᖃᕆᑕᐅᔭᒃᑯᑦ ᑐᑭᓯᒋᐊᕐᕕᒃ ᐊᑐᐃᓐᓇᐅᔪᖅ ᐊᒥᓱᓄᑦ ᐅᖃᐅᓯᕐᓄᑦ.",
+    "ot": "ᒪᑐᐃᖓᔪᖅ ᑐᑭᓯᒋᐊᕐᕕᒃ ᐊᑖᓂ GPL-3.0",
+    "op": "ᑐᑭᓯᒋᐊᕐᕕᒃᓴᐃᑦ, ᓴᖅᑭᑕᐅᓯᒪᔪᑦ ᐊᒻᒪ ᐅᖃᖃᑎᒌᒍᑕᐅᕙᒃᑐᑦ ᑕᑯᒃᓴᐅᕗᑦ GitHub-ᑯᑦ. ᓇᓂᓯᒍᕕᑦ ᖁᐱᕐᕈᒥᒃ ᐅᕝᕙᓘᓐᓃᑦ ᐃᓱᒪᒃᓴᖅᓯᐅᕈᑎᒃᓴᖃᕈᕕᑦ, ᒪᑐᐃᖅᓯᓗᑎᑦ ᐱᔾᔪᑎᒥᒃ.",
+    "repo": "ᑐᖅᑯᐃᕕᒃ",
+    "bug": "ᖁᐱᕐᕈᒥᒃ ᐅᓂᒃᑳᓕᐅᕐᓗᑎᑦ",
+    "legal": "Minecraft ᓇᓗᓇᐃᒃᑯᑕᕆᔭᐅᔪᖅ ᒨᔭᖕ ᓯᑐᐃᐅᔅᑯᓐᓄᑦ. ᐊᕐᐴᔅ ᒪᓐᑐᕆᐊ ᑲᓲᒪᓂᖃᙱᓚᖅ ᒨᔭᖕ ᓯᑐᐃᐅᔅᑯᓐᓄᑦ ᐅᕝᕙᓘᓐᓃᑦ ᒪᐃᑯᓵᕝᑯᓐᓄᑦ.",
+    "seed.15": "ᐃᒪᐅᑉ ᓯᓕᓂᖓ",
+    "seed.65": "ᕼᐊᓂ",
+    "seed.150": "ᒥᓐᑦ",
+    "seed.245": "ᑕᕆᐅᖅ",
+    "seed.295": "ᐸᐅᙵᕐᔪᐊᖁᑖᖅ"
+  },
+  "olb": {
+    "chip": "Открытый код · gpl-3.0",
+    "h1": "Лаунчер для minecraft <em>в тваих цветах</em>",
+    "lead": "arbuz launcher ставид мады и сборки из curseforge и modrinth, памогаед с вылетами и красид интерфейс в цвета monet.",
+    "dl": "Скачать",
+    "src": "Исходный код",
+    "win": "Сборки",
+    "play": "Играть",
+    "accent": "Акценд",
+    "note": "Весь интерфейс страицца ад адново окцента. Выбери свой.",
+    "inside": "Что внутри",
+    "f1t": "ИИ-памосчнег",
+    "f1p": "Помогаед собрать сборку и разобрацца, пачему игра вылетаед.",
+    "f2t": "Темы monet",
+    "f2p": "Цвета интерфейса страйацца ад адново окцента, каг в material you. Есть и другие тимы.",
+    "f3t": "curseforge и modrinth",
+    "f3p": "Исчи и ставь мады и сборки из апаих каталогофф, ни выходя из лаунчера.",
+    "f4t": "Любой оккаунд",
+    "f4p": "Войди через microsoft, ely.by или littleskin либо играй афлайнчег.",
+    "offline": "Офлайнчег",
+    "f5t": "Мново йазыкофф",
+    "f5p": "Интерфейс доступенчег на многих йазыках.",
+    "ot": "Открытый код пад gpl-3.0",
+    "op": "Исходники, релизы и апсужденийа живуд на github. Нашйол ашибку или есть идейа, аткрой issue.",
+    "repo": "Репазиторий",
+    "bug": "Саобсчить ап ашибке",
+    "legal": "minecraft — торговайа марко mojang studios. arbuz launcher ни связанчег с mojang studios и microsoft.",
+    "seed.15": "Арбуз",
+    "seed.65": "Мйод",
+    "seed.150": "Мята",
+    "seed.245": "Океанчег",
+    "seed.295": "Слива"
+  },
+  "ka": {
+    "chip": "ღია წყარო GPL-3.0",
+    "h1": "გამშვები Minecraft-ისთვის <em>თქვენს ფერებში</em>",
+    "lead": "Arbuz Launcher აინსტალირებს მოდებს და აშენებს CurseForge-დან და Modrinth-დან, ეხმარება ავარიაში და ინტერფეისს ხატავს Monet-ის ფერებში.",
+    "dl": "ჩამოტვირთვა",
+    "src": "წყაროს კოდი",
+    "win": "შეკრებები",
+    "play": "ითამაშეთ",
+    "accent": "აქცენტი",
+    "note": "მთელი ინტერფეისი აგებულია ერთი ფოკუსიდან. აირჩიე შენი.",
+    "inside": "რა არის შიგნით",
+    "f1t": "AI ასისტენტი",
+    "f1p": "გეხმარებათ build-ის შექმნაში და იმის გარკვევაში, თუ რატომ იშლება თამაში.",
+    "f2t": "მონეს თემები",
+    "f2p": "ინტერფეისის ფერები ეფუძნება ერთ აქცენტს, როგორც Material You-ში. არის სხვა თემებიც.",
+    "f3t": "CurseForge და Modrinth",
+    "f3p": "მოძებნეთ და დააინსტალირეთ მოდიფიკაციები და ასამბლეები ორივე კატალოგიდან გამშვებიდან გაუსვლელად.",
+    "f4t": "ნებისმიერი ანგარიში",
+    "f4p": "შედით Microsoft-ის, Ely.by-ის ან LittleSkin-ის მეშვეობით ან ითამაშეთ ოფლაინში.",
+    "offline": "ხაზგარეშე",
+    "f5t": "ბევრი ენა",
+    "f5p": "ინტერფეისი ხელმისაწვდომია მრავალ ენაზე.",
+    "ot": "ღია წყარო GPL-3.0-ის ქვეშ",
+    "op": "წყაროები, გამოშვებები და დისკუსიები პირდაპირ ეთერში GitHub-ზე. თუ შეცდომას იპოვით ან გაქვთ იდეა, გახსენით საკითხი.",
+    "repo": "საცავი",
+    "bug": "შეატყობინეთ შეცდომის შესახებ",
+    "legal": "Minecraft არის Mojang Studios-ის სავაჭრო ნიშანი. Arbuz Launcher არ არის დაკავშირებული Mojang Studios-თან ან Microsoft-თან.",
+    "seed.15": "საზამთრო",
+    "seed.65": "თაფლი",
+    "seed.150": "ზარაფხანა",
+    "seed.245": "ოკეანე",
+    "seed.295": "ქლიავი"
+  }
+};
+  var NAMES = [["ru","Русский"],["en","English"],["fa","فارسی"],["ar","العربية"],["he","עברית"],["az","Azərbaycanca"],["hy","Հայերեն"],["pt","Português"],["pl","Polski"],["uk","Українська"],["be","Беларуская"],["sr","Српски"],["sk","Slovenčina"],["eo","Esperanto"],["et","Eesti"],["fi","Suomi"],["fr","Français"],["de","Deutsch"],["lv","Latviešu"],["lt","Lietuvių"],["zh","中文"],["ja","日本語"],["kk","Қазақша"],["ky","Кыргызча"],["uz","Oʻzbekcha"],["tg","Тоҷикӣ"],["iu","ᐃᓄᒃᑎᑐᑦ"],["olb","Олбанский"],["ka","ქართული"]];
+  var SPREAD = Object.keys(I18N);
+  var RTL = ["fa", "ar", "he"];
+
+  var texts = Array.prototype.slice.call(document.querySelectorAll("[data-i18n]"));
+  texts.forEach(function (el) { el.setAttribute("data-ru", el.innerHTML); });
+  var dots = Array.prototype.slice.call(document.querySelectorAll(".dot"));
+  var nameEl = document.getElementById("seed-name");
+  var select = document.getElementById("lang");
+
+  NAMES.forEach(function (pair) {
+    var o = document.createElement("option");
+    o.value = pair[0];
+    o.textContent = pair[1];
+    select.appendChild(o);
+  });
+
+  var lang = "ru";
+  var hue = 15;
+  var SEED_HUES = [15, 150, 245, 295, 65];
+  try {
+    var asked = new URLSearchParams(location.search).get("l");
+    var saved = localStorage.getItem("arbuz-lang");
+    var probe = asked || saved;
+    if (probe && I18N[probe]) lang = probe;
+    else {
+      var sys = (navigator.language || "ru").slice(0, 2).toLowerCase();
+      if (I18N[sys]) lang = sys;
+    }
+    var sh = Number(localStorage.getItem("arbuz-hue"));
+    if (SEED_HUES.indexOf(sh) >= 0) hue = sh;
+  } catch (e) {}
+
+  function words(code) {
+    var table = I18N[code] || {};
+    return function (key, fallback) { return table[key] !== undefined ? table[key] : fallback; };
+  }
+
+  function render() {
+    var w = words(lang);
+    document.documentElement.lang = lang;
+    document.documentElement.dir = RTL.indexOf(lang) >= 0 ? "rtl" : "ltr";
+    document.documentElement.style.setProperty("--h", String(hue));
+    select.value = lang;
+    texts.forEach(function (el) {
+      var key = el.getAttribute("data-i18n");
+      el.innerHTML = w(key, el.getAttribute("data-ru"));
+    });
+    dots.forEach(function (d) {
+      var h = Number(d.getAttribute("data-h"));
+      var name = w("seed." + h, String(h));
+      d.setAttribute("aria-pressed", h === hue ? "true" : "false");
+      d.setAttribute("aria-label", name);
+      d.setAttribute("title", name);
+    });
+    nameEl.textContent = w("seed." + hue, "");
+  }
+
+  function remember(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} }
+
+  dots.forEach(function (d) {
+    d.addEventListener("click", function () {
+      hue = Number(d.getAttribute("data-h"));
+      remember("arbuz-hue", hue);
+      render();
+    });
+  });
+  select.addEventListener("change", function () {
+    lang = select.value;
+    remember("arbuz-lang", lang);
+    try {
+      var u = new URL(location.href);
+      u.searchParams.set("l", lang);
+      history.replaceState(null, "", u);
+    } catch (e) {}
+    render();
+  });
+
+  render();
+})();
+</script>
+
+</body></html>   

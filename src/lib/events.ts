@@ -40,3 +40,7 @@ export const onGameExit = (h: (p: GameExitPayload) => void): Promise<UnlistenFn>
 
 export const onMsStep = (h: (p: MsStepPayload) => void): Promise<UnlistenFn> =>
   listen<MsStepPayload>('ms-step', (e) => h(e.payload));
+
+/** Бенчмарк завершился: итоги прогона. */
+export const onBenchDone = (h: (p: unknown) => void): Promise<UnlistenFn> =>
+  listen<unknown>('bench-done', (e) => h(e.payload));

@@ -1,42 +1,68 @@
 name: Build
 
-# Собираем на всех трёх ОС. Windows — свой NSIS-установщик (портативные данные
-# рядом с лаунчером), macOS — universal .dmg (Intel + Apple Silicon), Linux —
-# AppImage, .deb и .rpm.
-#
-# Тег v1.2.3 (или ручной запуск с указанным релизом) дополнительно создаёт
-# GitHub Release со всеми файлами — по нему лаунчер и проверяет обновления.
+# Собираем Windows, macOS и Linux. На push в main версия поднимается сама
+# (1.0.0 → 1.0.1), ставится тег и публикуется релиз. Ручной запуск умеет
+# поднять major/minor или собрать конкретную версию. В коммите можно написать
+# [skip release], чтобы не выпускать релиз.
 
 on:
   workflow_dispatch:
     inputs:
       release:
-        description: 'Тег релиза (например 1.0.1). Пусто — только собрать артефакты.'
+        description: 'Версия релиза, например 1.0.1 (пусто — поднять автоматически)'
         required: false
         default: ''
+      bump:
+        description: 'Какую часть версии поднять'
+        type: choice
+        options: [none, patch, minor, major]
+        default: patch
   push:
     branches: [main, master]
     tags: ['v*']
   pull_request:
 
-# Новый пуш в ту же ветку отменяет старую сборку, но не трогает релизы.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  # pnpm не должен пытаться обновлять lock-файл в CI.
   CI: 'true'
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # Быстрая проверка: типы фронтенда + тесты Rust (без сборки установщиков).
-  # ---------------------------------------------------------------------------
+  # Версия, тег и решение, выпускать ли релиз.
+  prepare:
+    name: Версия и тег
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+      ref: ${{ steps.ver.outputs.ref }}
+      release: ${{ steps.ver.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Определить версию
+        id: ver
+        env:
+          RELEASE_INPUT: ${{ github.event.inputs.release }}
+          BUMP: ${{ github.event.inputs.bump }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: node scripts/ci-release.mjs
+
+  # Типы и тесты Rust — на каждый PR и push.
   check:
     name: Проверка (tsc + cargo test)
     runs-on: ubuntu-22.04
@@ -65,17 +91,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-dev \
-            libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libxdo-dev \
-            libdbus-1-dev \
-            libssl-dev \
-            patchelf \
-            build-essential
+            libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev libdbus-1-dev libssl-dev \
+            patchelf build-essential
 
       - name: Зависимости фронтенда
         run: pnpm install --frozen-lockfile
@@ -83,19 +102,17 @@ jobs:
       - name: Типы TypeScript
         run: pnpm check
 
-      # cargo test компилирует lib.rs с generate_context! — ему нужен собранный dist/.
+      # cargo test компилирует lib.rs с generate_context! — нужен собранный dist/.
       - name: Сборка фронтенда
         run: pnpm exec vite build
 
       - name: Тесты Rust
         run: pnpm test
 
-  # ---------------------------------------------------------------------------
-  # Windows: exe + свой NSIS-установщик.
-  # ---------------------------------------------------------------------------
   windows:
-    name: Windows (exe + setup)
-    if: github.event_name != 'pull_request'
+    name: Windows (exe, setup, tar.xz)
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
     runs-on: windows-latest
     timeout-minutes: 60
     defaults:
@@ -103,6 +120,8 @@ jobs:
         shell: pwsh
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -127,7 +146,7 @@ jobs:
       - name: Версия
         id: ver
         env:
-          RELEASE_INPUT: ${{ github.event.inputs.release }}
+          RELEASE_INPUT: ${{ needs.prepare.outputs.version }}
         run: node scripts/ci-version.mjs
 
       - name: NSIS
@@ -135,9 +154,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           if (Get-Command makensis -ErrorAction SilentlyContinue) { exit 0 }
           choco install nsis --no-progress -y
-          # choco кладёт makensis в Program Files (x86), скрипт установщика его найдёт.
-          $mk = 'C:\Program Files (x86)\NSIS\makensis.exe'
-          if (-not (Test-Path $mk)) { throw "makensis не найден: $mk" }
+          if (-not (Test-Path 'C:\Program Files (x86)\NSIS\makensis.exe')) {
+            throw 'makensis не найден'
+          }
 
       - name: Сборка лаунчера
         run: pnpm tauri build --no-bundle
@@ -148,12 +167,19 @@ jobs:
       - name: Имена файлов релиза
         run: |
           $ErrorActionPreference = 'Stop'
-          $v = '${{ steps.ver.outputs.version }}'
+          $v = '${{ needs.prepare.outputs.version }}'
           New-Item -ItemType Directory -Force out | Out-Null
           $setup = Get-ChildItem 'src-tauri\target\release\bundle\arbuz\*.exe' | Select-Object -First 1
           if (-not $setup) { throw 'установщик не собрался' }
           Copy-Item $setup.FullName "out/Arbuz-Launcher-$v-windows-x64-setup.exe"
           Copy-Item 'src-tauri\target\release\arbuz-launcher.exe' "out/Arbuz-Launcher-$v-windows-x64-portable.exe"
+
+          $z = if (Get-Command 7z -ErrorAction SilentlyContinue) { (Get-Command 7z).Source } else { 'C:\Program Files\7-Zip\7z.exe' }
+          $tar = Join-Path $env:RUNNER_TEMP 'arbuz-portable.tar'
+          Push-Location out
+          & $z a -ttar $tar "Arbuz-Launcher-$v-windows-x64-portable.exe" | Out-Null
+          Pop-Location
+          & $z a -txz "$PWD\out\Arbuz-Launcher-$v-windows-x64.tar.xz" $tar | Out-Null
           Get-ChildItem out | Select-Object Name, Length
 
       - uses: actions/upload-artifact@v4
@@ -163,16 +189,16 @@ jobs:
           retention-days: 14
           path: out/*
 
-  # ---------------------------------------------------------------------------
-  # macOS: universal .dmg (arm64 + x86_64), подпись не нужна.
-  # ---------------------------------------------------------------------------
   macos:
-    name: macOS (universal dmg)
-    if: github.event_name != 'pull_request'
+    name: macOS (dmg, tar.xz)
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
     runs-on: macos-14
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -199,20 +225,24 @@ jobs:
       - name: Версия
         id: ver
         env:
-          RELEASE_INPUT: ${{ github.event.inputs.release }}
+          RELEASE_INPUT: ${{ needs.prepare.outputs.version }}
         run: node scripts/ci-version.mjs
 
       - name: Сборка (universal)
         run: pnpm tauri build --target universal-apple-darwin --bundles dmg
 
-      - name: Имя файла релиза
+      - name: Имена файлов релиза
         run: |
           set -euo pipefail
-          v="${{ steps.ver.outputs.version }}"
+          v="${{ needs.prepare.outputs.version }}"
           mkdir -p out
           dmg=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name '*.dmg' | head -n 1)
           test -n "$dmg"
           cp "$dmg" "out/Arbuz-Launcher-$v-macos-universal.dmg"
+
+          app=$(find src-tauri/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' | head -n 1)
+          test -n "$app"
+          tar -cJf "out/Arbuz-Launcher-$v-macos-universal.tar.xz" -C "$(dirname "$app")" "$(basename "$app")"
           ls -lh out
 
       - uses: actions/upload-artifact@v4
@@ -222,19 +252,18 @@ jobs:
           retention-days: 14
           path: out/*
 
-  # ---------------------------------------------------------------------------
-  # Linux: AppImage (запускается везде), deb и rpm для пакетных менеджеров.
-  # ---------------------------------------------------------------------------
   linux:
-    name: Linux (AppImage, deb, rpm)
-    if: github.event_name != 'pull_request'
+    name: Linux (AppImage, deb, rpm, tar.xz)
+    needs: prepare
+    if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     env:
-      # AppImage-инструменты сами распаковываются: FUSE на раннере нет.
       APPIMAGE_EXTRACT_AND_RUN: '1'
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -257,21 +286,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-dev \
-            libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libxdo-dev \
-            libdbus-1-dev \
-            libssl-dev \
-            patchelf \
-            libfuse2 \
-            rpm \
-            file \
-            wget \
-            build-essential
+            libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev libdbus-1-dev libssl-dev \
+            patchelf libfuse2 rpm file wget build-essential
 
       - name: Зависимости фронтенда
         run: pnpm install --frozen-lockfile
@@ -279,7 +297,7 @@ jobs:
       - name: Версия
         id: ver
         env:
-          RELEASE_INPUT: ${{ github.event.inputs.release }}
+          RELEASE_INPUT: ${{ needs.prepare.outputs.version }}
         run: node scripts/ci-version.mjs
 
       - name: Сборка пакетов
@@ -288,13 +306,29 @@ jobs:
       - name: Имена файлов релиза
         run: |
           set -euo pipefail
-          v="${{ steps.ver.outputs.version }}"
+          v="${{ needs.prepare.outputs.version }}"
           mkdir -p out
           b=src-tauri/target/release/bundle
           cp "$(find $b/appimage -name '*.AppImage' | head -n1)" "out/Arbuz-Launcher-$v-linux-x86_64.AppImage"
           cp "$(find $b/deb -name '*.deb' | head -n1)"         "out/Arbuz-Launcher-$v-linux-amd64.deb"
           cp "$(find $b/rpm -name '*.rpm' | head -n1)"         "out/Arbuz-Launcher-$v-linux-x86_64.rpm"
           chmod +x out/*.AppImage
+
+          # Портативный архив: сам бинарник, иконка и .desktop.
+          mkdir -p pack/Arbuz-Launcher
+          cp src-tauri/target/release/arbuz-launcher pack/Arbuz-Launcher/
+          cp src-tauri/icons/icon.png pack/Arbuz-Launcher/arbuz-launcher.png
+          cat > pack/Arbuz-Launcher/arbuz-launcher.desktop <<'DESKTOP'
+          [Desktop Entry]
+          Type=Application
+          Name=Arbuz Launcher
+          Comment=Minecraft launcher
+          Exec=arbuz-launcher
+          Icon=arbuz-launcher
+          Terminal=false
+          Categories=Game;
+          DESKTOP
+          tar -cJf "out/Arbuz-Launcher-$v-linux-x86_64.tar.xz" -C pack Arbuz-Launcher
           ls -lh out
 
       - uses: actions/upload-artifact@v4
@@ -304,17 +338,12 @@ jobs:
           retention-days: 14
           path: out/*
 
-  # ---------------------------------------------------------------------------
-  # Релиз: только по тегу v* или при ручном запуске с указанным тегом.
-  # ---------------------------------------------------------------------------
   release:
     name: Публикация релиза
-    needs: [windows, macos, linux]
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.release != '')
+    needs: [prepare, windows, macos, linux]
+    if: needs.prepare.outputs.release == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    permissions:
-      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -330,23 +359,10 @@ jobs:
           find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Тег
-        id: ver
-        env:
-          RELEASE_INPUT: ${{ github.event.inputs.release }}
-        run: |
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            tag="${GITHUB_REF_NAME}"
-          else
-            tag="$RELEASE_INPUT"
-          fi
-          case "$tag" in v*) ;; *) tag="v$tag" ;; esac
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.ver.outputs.tag }}
-          name: Arbuz Launcher ${{ steps.ver.outputs.tag }}
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: Arbuz Launcher ${{ needs.prepare.outputs.tag }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: dist/**/*

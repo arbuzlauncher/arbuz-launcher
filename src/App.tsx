@@ -16,6 +16,7 @@ import { LayoutEdit } from './components/LayoutEdit';
 import { LauncherUpdateModal } from './components/LauncherUpdateModal';
 import { Onboarding } from './components/Onboarding';
 import { ProfileView } from './components/ProfileView';
+import { ServersView } from './components/ServersView';
 import { Sidebar } from './components/Sidebar';
 import { Titlebar } from './components/Titlebar';
 import { Toast } from './components/Toast';
@@ -24,11 +25,13 @@ import { onGameExit, onGameLog, onGameStart, onProgress } from './lib/events';
 import { applyTheme, normCustom, normStyle, softOf } from './lib/theme';
 import { animActive, applyAnim, mergeAnim, useReducedMotion } from './lib/anim';
 import { normLang } from './lib/i18n';
+import { applyDirection } from './lib/rtl';
 import { pushLog, flushConfig, loadContentCounts, loadSkins, useStore, type StoreState } from './store';
 
 export default function App() {
   const view = useStore((s) => s.view);
   const onboarded = useStore((s) => s.config.onboarded);
+  const lang = useStore((s) => s.config.lang);
   const style = useStore((s) => s.config.style);
   const dark = useStore((s) => s.config.dark);
   const accent = useStore((s) => s.config.accent);
@@ -37,6 +40,11 @@ export default function App() {
   const move = useStore((s) => s.move);
   const reduce = useReducedMotion();
   const checkAppUpd = useStore((s) => s.config.checkLauncherUpdates);
+
+  // Язык меняет не только строки, но и направление записи (RTL для ar/fa/he).
+  useEffect(() => {
+    applyDirection(lang);
+  }, [lang]);
 
   // Обновления лаунчера: один раз за запуск, если включено в настройках.
   useEffect(() => {
@@ -257,6 +265,8 @@ export default function App() {
                 <Installations />
               ) : view === 'coop' ? (
                 <CoopTab />
+              ) : view === 'servers' ? (
+                <ServersView />
               ) : view === 'accounts' ? (
                 <Accounts />
               ) : view === 'p' ? (

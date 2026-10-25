@@ -10,6 +10,11 @@ pub struct AppState {
     pub config: Mutex<Config>,
     /// instance id -> сигнал kill
     pub running: Mutex<HashMap<String, oneshot::Sender<()>>>,
+    /// instance id -> PID процесса игры (для монитора RAM/CPU).
+    pub game_pids: Mutex<HashMap<String, u32>>,
+    /// Живой монитор: один sysinfo::System на процесс, чтобы cpu_usage
+    /// считался между опросами, а не с нуля.
+    pub monitor: std::sync::Mutex<sysinfo::System>,
     pub ms_cancel: AtomicBool,
 }
 
@@ -30,6 +35,8 @@ impl AppState {
             http,
             config: Mutex::new(load_config()),
             running: Mutex::new(HashMap::new()),
+            game_pids: Mutex::new(HashMap::new()),
+            monitor: std::sync::Mutex::new(sysinfo::System::new()),
             ms_cancel: AtomicBool::new(false),
         }
     }

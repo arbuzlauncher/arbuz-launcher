@@ -10,6 +10,7 @@ import { MaterialIcon } from '../lib/material-icons';
 import { monetLike } from '../lib/theme';
 import { curAccount, curInstance, iconUrl, useArtTheme, useStore } from '../store';
 import { Avatar } from './Controls';
+import { MonitorStrip } from './GameMonitor';
 
 export function BottomBar() {
   const s = useStore();
@@ -89,6 +90,7 @@ export function BottomBar() {
       )}
 
       <div className="bottom-mid">
+        {run && <MonitorStrip id={inst.id} />}
         <button
           type="button"
           className={'bottom-play' + (run ? ' run' : '')}

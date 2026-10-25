@@ -152,6 +152,7 @@ pub async fn launch(
     id: String,
     world: Option<String>,
     server: Option<String>,
+    scan_override: bool,
 ) -> Res<()> {
     // A. Профиль и активный аккаунт.
     let inst = store::read_instance(&id).await?;
@@ -171,8 +172,19 @@ pub async fn launch(
         running.insert(id.clone(), kill_tx);
     }
 
-    let result = run(&app, state, &id, &inst, &acc, world, server, &mut kill_rx).await;
+    let result = run(&app, state, &id, &inst, &acc, world, server, scan_override, &mut kill_rx).await;
     state.running.lock().await.remove(&id);
+    state.game_pids.lock().await.remove(&id);
+
+    // Бенчмарк (если идёт): считаем итоги до очистки PID.
+    if crate::benchmark::is_running(id.as_str()) {
+        let mods = std::fs::read_dir(paths::instance_minecraft_dir(id.as_str()).join("mods"))
+            .map(|rd| rd.flatten().filter(|e| e.path().is_file()).count() as u32)
+            .unwrap_or(0);
+        if let Some(run) = crate::benchmark::finish(id.as_str(), &inst.mc_version, inst.loader.label(), mods) {
+            let _ = app.emit("bench-done", run);
+        }
+    }
 
     match result {
         Ok(Outcome::Done(code)) => {
@@ -199,7 +211,7 @@ pub async fn launch(
     }
 }
 
-/// Конвейер: файлы, библиотеки, ассеты, Java, аргументы, процесс, учёт времени.
+/// Конвейер: сканер, файлы, библиотеки, ассеты, Java, аргументы, процесс, учёт времени.
 async fn run(
     app: &AppHandle,
     state: &AppState,
@@ -208,10 +220,23 @@ async fn run(
     acc: &Account,
     world: Option<String>,
     server: Option<String>,
+    scan_override: bool,
     kill_rx: &mut tokio::sync::oneshot::Receiver<()>,
 ) -> Res<Outcome> {
     // E. Начало.
     let _ = app.emit("progress", Progress { id: id.to_string(), pct: 0.0 });
+
+    // D. Сканер модов: до скачивания чего-либо. Пользователь мог явно
+    // подтвердить «запустить всё равно» — тогда гейт пропускается.
+    if !scan_override {
+        crate::scanner::launch_gate(state, id).await?;
+    }
+
+    // D2. Синхронизация настроек: подмешать выбранные ключи options.txt
+    // и servers.dat из главного профиля до старта игры.
+    if let Some(sync) = state.config.lock().await.sync.clone() {
+        crate::sync::apply_before_launch(id, &sync).await?;
+    }
 
     // F. (0 → 30) version.json и client jar.
     // Для модового загрузчика сначала ставим его профиль и сливаем с vanilla.
@@ -643,6 +668,8 @@ async fn run(
             crate::sandbox::apply(h, guard, sandbox_ready);
         }
     }
+    state.game_pids.lock().await.insert(id.to_string(), child.id().unwrap_or(0));
+    crate::benchmark::on_pid(id, child.id().unwrap_or(0));
     let _ = app.emit(
         "game-start",
         GameStart {
@@ -669,6 +696,7 @@ async fn run(
             loop {
                 match lines.next_line().await {
                     Ok(Some(line)) => {
+                        crate::benchmark::on_log(&id2, &line);
                         let line = if m.is_empty() {
                             line
                         } else {
@@ -699,6 +727,7 @@ async fn run(
             loop {
                 match lines.next_line().await {
                     Ok(Some(line)) => {
+                        crate::benchmark::on_log(&id2, &line);
                         let line = if m.is_empty() {
                             line
                         } else {

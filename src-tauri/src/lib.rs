@@ -1,11 +1,13 @@
 mod accounts;
 mod ai;
+mod benchmark;
 mod builder;
 mod catalog;
 mod commands;
 mod content;
 mod crash;
 mod error;
+mod gamedir;
 mod http;
 mod java;
 mod loaders;
@@ -19,6 +21,9 @@ mod packs;
 mod paths;
 mod prism;
 mod sandbox;
+mod servers;
+mod scanner;
+mod sync;
 mod skins;
 mod state;
 mod store;
@@ -44,6 +49,11 @@ fn show_main(app: &tauri::AppHandle) {
 
 pub fn run() {
     tauri::Builder::default()
+        // Должен быть первым плагином: второй запуск не создаёт окно,
+        // а поднимает уже работающий лаунчер.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            show_main(app);
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::new())
@@ -122,8 +132,11 @@ pub fn run() {
                 Ok(())
             })();
             // Ошибка трея не должна мешать запуску: без иконки лаунчер
-            // работает как раньше.
-            let _ = tray_result;
+            // работает как раньше, но тогда закрытие окна завершает процесс,
+            // а не прячет его в несуществующий трей.
+            if tray_result.is_ok() {
+                TRAY_OK.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -140,6 +153,8 @@ pub fn run() {
             commands::set_instance_icon_url,
             commands::clear_instance_icon,
             commands::open_instance_folder,
+            commands::read_game_log,
+            commands::open_logs_folder,
             commands::get_system_ram_mb,
             commands::list_mc_versions,
             commands::add_custom_version,
@@ -215,6 +230,23 @@ pub fn run() {
             commands::p2p_new_code,
             commands::p2p_notice,
             commands::check_launcher_update,
+            commands::scan_mods,
+            commands::scanner_allow_mod,
+            commands::scanner_quarantine,
+            commands::scanner_quarantine_restore,
+            commands::scanner_quarantine_delete,
+            commands::ai_scan_note,
+            commands::sync_master_options,
+            commands::find_class_owner,
+            commands::servers_catalog,
+            commands::server_ping,
+            commands::servers_dat_add,
+            commands::pinned_servers,
+            commands::pin_server,
+            commands::game_monitor,
+            commands::benchmark_start,
+            commands::benchmark_cancel,
+            commands::benchmark_list,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

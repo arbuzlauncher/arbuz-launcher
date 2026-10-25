@@ -111,6 +111,32 @@ pub fn tmp_dir() -> PathBuf {
     runtimes_dir().join("tmp")
 }
 
+// сканер модов
+/// Веса и пороги сканера (правится вручную или продвинутыми настройками).
+pub fn scanner_config_file() -> PathBuf {
+    root().join("scanner.json")
+}
+
+/// Локальная база известной малвари (обновляется отдельно).
+pub fn malware_db_file() -> PathBuf {
+    root().join("malware_db.json")
+}
+
+/// Кэш результатов сканирования по SHA-256.
+pub fn scanner_cache_dir() -> PathBuf {
+    root().join("cache").join("scanner")
+}
+
+/// Ручные исключения сканера для профиля.
+pub fn instance_scanner_json(id: &str) -> PathBuf {
+    instance_dir(id).join("scanner.json")
+}
+
+/// Карантин заблокированных модов (параноидальный режим).
+pub fn instance_quarantine_dir(id: &str) -> PathBuf {
+    instance_dir(id).join("quarantine")
+}
+
 // shared/
 pub fn shared_dir() -> PathBuf {
     root().join("shared")

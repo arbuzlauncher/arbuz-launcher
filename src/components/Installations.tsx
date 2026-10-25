@@ -10,6 +10,7 @@ import { LOADER_LABEL } from '../lib/labels';
 import { askConfirm, cancelSave, curAccount, iconUrl, useArtTheme, useStore, visibleInstances } from '../store';
 import { AiPackModal } from './AiPackModal';
 import { Avatar } from './Controls';
+import { ExportPackModal } from './ExportPackModal';
 import { NewProfileModal } from './NewProfileModal';
 
 export function Installations() {
@@ -24,6 +25,46 @@ export function Installations() {
   const [mrOpen, setMrOpen] = useState(false);
   const [mrList, setMrList] = useState<ModrinthProfile[] | null>(null);
   const [mrBusy, setMrBusy] = useState(false);
+  const [prismOpen, setPrismOpen] = useState(false);
+  const [exportFor, setExportFor] = useState<Instance | null>(null);
+
+  /** Готовая сборка файлом: CurseForge .zip, Modrinth .mrpack или архив MultiMC/Prism. */
+  const importPackFile = async (kind: 'curseforge' | 'modrinth' | 'prism') => {
+    const ext = kind === 'modrinth' ? 'mrpack' : 'zip';
+    const filter =
+      kind === 'curseforge'
+        ? t('Сборка CurseForge')
+        : kind === 'modrinth'
+          ? t('Сборка Modrinth')
+          : t('Архив MultiMC/Prism');
+    let path: string | string[] | null = null;
+    try {
+      path = await open({
+        multiple: false,
+        filters: [{ name: filter, extensions: [ext] }],
+      });
+    } catch (e) {
+      useStore.getState().toastMsg(String(e));
+      return;
+    }
+    if (typeof path !== 'string') return;
+
+    const file = path.split(/[\\/]/).pop() ?? t('Сборка');
+    const st = useStore.getState();
+    st.set({ packName: file, packPct: 0 });
+    try {
+      const inst = await api.importPack(path);
+      const list = await api.listInstances();
+      useStore.getState().set({ instances: list, sel: inst.id });
+      useStore.getState().toastMsg(t('Сборка импортирована: {name}', { name: inst.name }));
+      if (kind === 'modrinth') setMrOpen(false);
+      if (kind === 'prism') setPrismOpen(false);
+    } catch (e) {
+      useStore.getState().toastMsg(String(e));
+    } finally {
+      useStore.getState().set({ packPct: null });
+    }
+  };
 
   const openModrinth = async () => {
     setMrOpen(true);
@@ -94,12 +135,15 @@ export function Installations() {
           <div className="screen-title">{t('Установки')}</div>
           <div className="screen-sub">{t('Каждая установка живёт в своей папке со своими модами и мирами.')}</div>
         </div>
-        <div className="row g8">
-          <button className="btn" onClick={() => void importPrism()}>
+        <div className="row g8" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button className="btn" onClick={() => void importPackFile('curseforge')}>
+            {t('Импорт CurseForge')}
+          </button>
+          <button className="btn" onClick={() => setPrismOpen(true)}>
             {t('Импорт MultiMC/Prism')}
           </button>
           <button className="btn" onClick={() => void openModrinth()}>
-            {t('Импорт из Modrinth App')}
+            {t('Импорт Modrinth')}
           </button>
           {s.config.aiBuilder && (
             <button className="btn" onClick={() => setAiOpen(true)}>
@@ -202,6 +246,15 @@ export function Installations() {
                   >
                     {t('Открыть папку')}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuFor(null);
+                      setExportFor(i);
+                    }}
+                  >
+                    {t('Экспорт…')}
+                  </button>
                   <button type="button" className="danger" onClick={() => void remove(i)}>
                     {t('Удалить')}
                   </button>
@@ -221,7 +274,7 @@ export function Installations() {
         >
           <div className="mod">
             <div className="r">
-              <h2>{t('Импорт из Modrinth App')}</h2>
+              <h2>{t('Импорт Modrinth')}</h2>
               <p className="hint" style={{ marginBottom: 14 }}>
                 {t('Моды, конфиги и миры профиля скопируются в новый профиль лаунчера.')}
               </p>
@@ -256,7 +309,49 @@ export function Installations() {
               )}
 
               <div className="row g8" style={{ justifyContent: 'flex-end', marginTop: 18 }}>
+                <button className="btn" disabled={mrBusy} onClick={() => void importPackFile('modrinth')}>
+                  {t('Выбрать .mrpack')}
+                </button>
                 <button className="btn" onClick={() => setMrOpen(false)} disabled={mrBusy}>
+                  {t('Закрыть')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {exportFor && <ExportPackModal inst={exportFor} onClose={() => setExportFor(null)} />}
+
+      {prismOpen && (
+        <div
+          className="ov"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPrismOpen(false);
+          }}
+        >
+          <div className="mod">
+            <div className="r">
+              <h2>{t('Импорт MultiMC/Prism')}</h2>
+              <p className="hint" style={{ marginBottom: 14 }}>
+                {t('Выберите папку установленного профиля или архив .zip, который экспортировал лаунчер.')}
+              </p>
+              <div className="row g8" style={{ flexWrap: 'wrap' }}>
+                <button
+                  className="btn pr"
+                  onClick={() => {
+                    setPrismOpen(false);
+                    void importPrism();
+                  }}
+                >
+                  {t('Папка профиля')}
+                </button>
+                <button className="btn" onClick={() => void importPackFile('prism')}>
+                  {t('Архив .zip')}
+                </button>
+              </div>
+              <div className="row g8" style={{ justifyContent: 'flex-end', marginTop: 18 }}>
+                <button className="btn" onClick={() => setPrismOpen(false)}>
                   {t('Закрыть')}
                 </button>
               </div>

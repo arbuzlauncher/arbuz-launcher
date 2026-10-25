@@ -11,6 +11,7 @@ import {
   WINDOW_PRESETS,
 } from '../lib/labels';
 import { BUILTIN_ICONS } from '../lib/builtin';
+import { recommendedRamMb } from '../lib/perf';
 import { applyInstance, askConfirm, cancelSave, curAccount, iconUrl, saveInstance, useArtTheme, useStore, type Sec } from '../store';
 import { useT } from '../lib/i18n';
 import { VERSION_GROUPS } from '../lib/versions';
@@ -18,7 +19,10 @@ import { Avatar, IUp, RamSlider, Seg, Toggle } from './Controls';
 import { ContentTab } from './ContentTab';
 import { ConsoleTab } from './ConsoleTab';
 import { PackTab } from './PackTab';
+import { ScannerTab } from './ScannerTab';
 import { ScreenshotsTab } from './ScreenshotsTab';
+import { BenchTab } from './BenchTab';
+import { SyncTab } from './SyncTab';
 import { UpdatesTab } from './UpdatesTab';
 import { WorldsTab } from './WorldsTab';
 
@@ -32,6 +36,9 @@ const SECS: [Sec, string][] = [
   ['m', 'Миры'],
   ['v', 'Консоль'],
   ['s', 'Скриншоты'],
+  ['sc', 'Безопасность'],
+  ['sy', 'Синхронизация'],
+  ['bm', 'Бенчмарк'],
 ];
 
 export function InstanceSettings({ inst }: { inst: Instance }) {
@@ -252,7 +259,48 @@ export function InstanceSettings({ inst }: { inst: Instance }) {
           ))}
         </div>
 
-        <label className="l">{t('Изолированная папка')}</label>
+        {s.config.showPlaytimeStats && (
+          <>
+            <label className="l" style={{ marginTop: 18 }}>
+              {t('Время игры')}
+            </label>
+            <div className="panel" style={{ padding: 14 }}>
+              <b style={{ fontSize: 18, fontWeight: 600 }}>
+                {t('{h} ч всего', {
+                  h: (inst.playtimeSec / 3600).toFixed(1),
+                })}
+              </b>
+              <div className="row" style={{ alignItems: 'flex-end', gap: 3, height: 44, marginTop: 10 }}>
+                {(() => {
+                  const days = Object.entries(inst.playtimeDays)
+                    .map(([d, sec]) => ({ d, sec }))
+                    .sort((a, b) => (a.d < b.d ? -1 : 1))
+                    .slice(-28);
+                  const max = Math.max(1, ...days.map((x) => x.sec));
+                  return days.map((x) => (
+                    <div
+                      key={x.d}
+                      title={`${x.d}: ${(x.sec / 3600).toFixed(1)} ч`}
+                      style={{
+                        flex: 1,
+                        minWidth: 4,
+                        height: `${Math.max(6, (x.sec / max) * 100)}%`,
+                        background: 'var(--pri)',
+                        borderRadius: 2,
+                        opacity: 0.85,
+                      }}
+                    />
+                  ));
+                })()}
+              </div>
+              <div className="hint" style={{ marginTop: 6 }}>
+                {t('Последние 28 дней игры')}
+              </div>
+            </div>
+          </>
+        )}
+
+        <label className="l" style={{ marginTop: 18 }}>{t('Изолированная папка')}</label>
         <div className="panel" style={{ padding: 14 }}>
           <div className="hint" style={{ fontFamily: 'ui-monospace,monospace' }}>
             instances/{inst.id}/minecraft/
@@ -334,6 +382,18 @@ export function InstanceSettings({ inst }: { inst: Instance }) {
               {t('Для сборок с модами меньше 2 ГБ почти всегда мало — начнутся лаги и вылеты.')}
             </div>
           )}
+          <div className="row" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+            <button
+              className="btn sm"
+              onClick={() => {
+                const mods = (s.sel === inst.id ? s.content : []).filter((c) => c.kind === 'mod' && c.enabled).length;
+                const target = recommendedRamMb(mods, s.systemRamMb);
+                upd({ ramMaxMb: target, ramMinMb: Math.min(inst.ramMinMb, Math.max(512, target / 4)) });
+              }}
+            >
+              {t('Подобрать по модам')}
+            </button>
+          </div>
         </div>
 
         <div className="two">
@@ -431,6 +491,13 @@ export function InstanceSettings({ inst }: { inst: Instance }) {
     body = <WorldsTab inst={inst} />;
   } else if (s.sec === 'v') {
     body = <ConsoleTab inst={inst} />;
+  } else if (s.sec === 'sc') {
+    body = <ScannerTab inst={inst} />;
+
+  } else if (s.sec === 'sy') {
+    body = <SyncTab inst={inst} />;
+  } else if (s.sec === 'bm') {
+    body = <BenchTab inst={inst} />;
   } else {
     body = <ScreenshotsTab inst={inst} />;
   }
@@ -452,7 +519,7 @@ export function InstanceSettings({ inst }: { inst: Instance }) {
           </div>
         ))}
       </div>
-      <div style={{ flex: 1, minWidth: 0, maxWidth: ['c', 'p', 'm', 's', 'v'].includes(s.sec) ? 'none' : 640 }}>{body}</div>
+      <div style={{ flex: 1, minWidth: 0, maxWidth: ['c', 'p', 'm', 's', 'v', 'sc', 'sy', 'bm'].includes(s.sec) ? 'none' : 640 }}>{body}</div>
     </div>
   );
 }

@@ -17,6 +17,12 @@ const CACHE = 'site/i18n.json';
 const LANGS = [
   ['ru', 'Русский', null],
   ['en', 'English', null],
+  ['fa', 'فارسی', 'fa'],
+  ['ar', 'العربية', 'ar'],
+  ['he', 'עברית', 'he'],
+  ['az', 'Azərbaycanca', 'az'],
+  ['hy', 'Հայերեն', 'hy'],
+  ['pt', 'Português', 'pt'],
   ['pl', 'Polski', 'pl'],
   ['uk', 'Українська', 'uk'],
   ['be', 'Беларуская', 'be'],
@@ -239,6 +245,7 @@ const js = `(function () {
   var I18N = ${JSON.stringify(cache, null, 2)};
   var NAMES = ${JSON.stringify(LANGS.map(([c, n]) => [c, n]))};
   var SPREAD = Object.keys(I18N);
+  var RTL = ["fa", "ar", "he"];
 
   var texts = Array.prototype.slice.call(document.querySelectorAll("[data-i18n]"));
   texts.forEach(function (el) { el.setAttribute("data-ru", el.innerHTML); });
@@ -277,6 +284,7 @@ const js = `(function () {
   function render() {
     var w = words(lang);
     document.documentElement.lang = lang;
+    document.documentElement.dir = RTL.indexOf(lang) >= 0 ? "rtl" : "ltr";
     document.documentElement.style.setProperty("--h", String(hue));
     select.value = lang;
     texts.forEach(function (el) {
