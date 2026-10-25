@@ -59,16 +59,6 @@ pnpm tauri build --target universal-apple-darwin --bundles dmg
 pnpm tauri build --bundles deb,rpm,appimage
 ```
 
-The output is in `src-tauri/target/<target>/release/bundle/`. Anything under
-`dist/` or `src-tauri/target/` is ignored by git.
-
-The version is stored in `package.json`, `tauri.conf.json` and `Cargo.toml`.
-The launcher uses the Cargo value to check for updates, so bump all three at
-once:
-
-```bash
-pnpm version:set 1.2.3
-```
 
 ## License
 
