@@ -328,6 +328,38 @@ struct DatRoot {
     servers: Vec<DatServer>,
 }
 
+/// Сервер из servers.dat профиля (то, что игрок добавил в самой игре).
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct ServerEntry {
+    pub name: String,
+    pub ip: String,
+}
+
+/// Читает servers.dat и возвращает список серверов. Нет файла или он битый —
+/// пустой список: лаунчер ничего не создаёт и не меняет.
+pub(crate) fn read_servers_dat(path: &Path) -> Vec<ServerEntry> {
+    let root: DatRoot = std::fs::read(path)
+        .ok()
+        .and_then(|b| fastnbt::from_bytes(&b).ok())
+        .unwrap_or_default();
+    root.servers
+        .into_iter()
+        .filter(|s| !s.ip.trim().is_empty())
+        .map(|s| ServerEntry {
+            name: s.name,
+            ip: s.ip,
+        })
+        .collect()
+}
+
+/// Список серверов профиля из servers.dat (только чтение).
+pub async fn list_servers(id: &str) -> Res<Vec<ServerEntry>> {
+    crate::paths::validate_instance_id(id)?;
+    let path = paths::instance_minecraft_dir(id).join("servers.dat");
+    Ok(read_servers_dat(&path))
+}
+
 /// Собирает обновлённое содержимое servers.dat: существующий с таким же
 /// адресом обновляется, а не дублируется. Нет файла — создаётся.
 pub(crate) fn build_servers_dat(path: &Path, name: &str, ip: &str) -> Res<Vec<u8>> {
@@ -483,6 +515,11 @@ mod tests {
         assert_eq!(root.servers.len(), 2, "дубль по ip обновляется, не добавляется");
         assert_eq!(root.servers[0].name, "Первый (обновлён)");
         assert_eq!(root.servers[1].ip, "two.example.net:25577");
+
+        let list = read_servers_dat(&path);
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].name, "Первый (обновлён)");
+        assert_eq!(list[1].ip, "two.example.net:25577");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

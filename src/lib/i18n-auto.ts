@@ -848,6 +848,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': '源代码',
     'Багрепорты': '错误报告',
     'Вики': '维基百科',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': '该列表来自配置文件的servers.dat。在游戏中添加服务器，它们将出现在此处。',
+    'Серверов пока нет': '还没有服务器',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': '在游戏中添加服务器，它们会自动出现在此处。',
   },
   et: {
     'Включить анимации': 'Luba animatsioonid',
@@ -1698,6 +1701,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Lähtekood',
     'Багрепорты': 'Veaaruanded',
     'Вики': 'Wiki',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Nimekiri pärineb profiili serverist.dat. Lisage mängusisesed serverid ja need kuvatakse siin.',
+    'Серверов пока нет': 'Servereid veel pole',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Lisage mängusisesed serverid ja need kuvatakse siin automaatselt.',
   },
   fi: {
     'Включить анимации': 'Ota animaatiot käyttöön',
@@ -2548,6 +2554,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Lähdekoodi',
     'Багрепорты': 'Virheraportit',
     'Вики': 'Wiki',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Luettelo on peräisin profiilin servers.dat-tiedostosta. Lisää palvelimia peliin ja ne näkyvät täällä.',
+    'Серверов пока нет': 'Ei vielä palvelimia',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Lisää palvelimia peliin ja ne näkyvät täällä automaattisesti.',
   },
   fr: {
     'Включить анимации': 'Activer les animations',
@@ -3398,6 +3407,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Code source',
     'Багрепорты': 'Rapports de bogues',
     'Вики': 'Wiki',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'La liste provient du server.dat du profil. Ajoutez des serveurs dans le jeu et ils apparaîtront ici.',
+    'Серверов пока нет': 'Pas encore de serveurs',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Ajoutez des serveurs dans le jeu et ils apparaîtront automatiquement ici.',
   },
   de: {
     'Включить анимации': 'Animationen aktivieren',
@@ -4248,6 +4260,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Quellcode',
     'Багрепорты': 'Fehlerberichte',
     'Вики': 'Wiki',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Die Liste stammt aus der server.dat des Profils. Fügen Sie Server im Spiel hinzu und sie werden hier angezeigt.',
+    'Серверов пока нет': 'Noch keine Server',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Fügen Sie Server im Spiel hinzu und sie werden hier automatisch angezeigt.',
   },
   be: {
     'Включить анимации': 'Уключыць анімацыі',
@@ -5098,6 +5113,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Зыходны код',
     'Багрепорты': 'Справаздачы пра памылкі',
     'Вики': 'Вікі',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Спіс узяты з servers.dat профілю. Дадайце серверы ў гульні, і яны з\'явяцца тут.',
+    'Серверов пока нет': 'Пакуль няма сервераў',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Дадайце серверы ў гульні, і яны з\'явяцца тут аўтаматычна.',
   },
   sr: {
     'Включить анимации': 'Укључи анимације',
@@ -5948,6 +5966,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Изворни код',
     'Багрепорты': 'Извештаји о грешкама',
     'Вики': 'Вики',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Листа долази са серверс.дат профила. Додајте сервере у игри и они ће се појавити овде.',
+    'Серверов пока нет': 'Још нема сервера',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Додајте сервере у игри и они ће се аутоматски појавити овде.',
   },
   sk: {
     'Включить анимации': 'Zapnúť animácie',
@@ -6798,6 +6819,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Zdrojový kód',
     'Багрепорты': 'Hlásenia chýb',
     'Вики': 'Wiki',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Zoznam pochádza z profilu servers.dat. Pridajte servery do hry a zobrazia sa tu.',
+    'Серверов пока нет': 'Zatiaľ žiadne servery',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Pridajte servery do hry a zobrazia sa tu automaticky.',
   },
   ja: {
     'Включить анимации': 'アニメーションを有効にする',
@@ -7648,6 +7672,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'ソースコード',
     'Багрепорты': 'バグレポート',
     'Вики': 'ウィキ',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'リストはプロファイルのservers.datから取得されます。ゲーム内でサーバーを追加すると、ここに表示されます。',
+    'Серверов пока нет': 'まだサーバーがありません',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'ゲーム内でサーバーを追加すると、ここに自動的に表示されます。',
   },
   tg: {
     'Включить анимации': 'Аниматсияҳоро фаъол кардан',
@@ -8498,6 +8525,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Рамзи манбаъ',
     'Багрепорты': 'Ҳисоботи хато',
     'Вики': 'Вики',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Рӯйхат аз профили servers.dat гирифта шудааст. Серверҳоро дар бозӣ илова кунед ва онҳо дар ин ҷо пайдо мешаванд.',
+    'Серверов пока нет': 'Ҳанӯз сервер нест',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Серверҳоро дар бозӣ илова кунед ва онҳо дар ин ҷо ба таври худкор пайдо мешаванд.',
   },
   uz: {
     'Включить анимации': 'Animatsiyalarni yoqish',
@@ -9348,6 +9378,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Manba kodi',
     'Багрепорты': 'Xatolar haqida xabarlar',
     'Вики': 'Wiki',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Ro\'yxat servers.dat profilidan olingan. O\'yin ichidagi serverlarni qo\'shing va ular shu yerda paydo bo\'ladi.',
+    'Серверов пока нет': 'Hozircha serverlar yoʻq',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'O\'yin ichidagi serverlarni qo\'shing va ular avtomatik ravishda shu yerda paydo bo\'ladi.',
   },
   ky: {
     'Включить анимации': 'Анимацияларды күйгүзүү',
@@ -10198,6 +10231,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Булак коду',
     'Багрепорты': 'Ката кабарлары',
     'Вики': 'Wiki',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Тизме профилдин servers.dat сайтынан алынган. Оюнга серверлерди кошуңуз, алар бул жерде пайда болот.',
+    'Серверов пока нет': 'Азырынча серверлер жок',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Оюнга серверлерди кошуңуз, алар бул жерде автоматтык түрдө пайда болот.',
   },
   lt: {
     'Включить анимации': 'Įjungti animacijas',
@@ -11048,6 +11084,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Šaltinio kodas',
     'Багрепорты': 'Pranešimai apie klaidas',
     'Вики': 'Wiki',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Sąrašas gaunamas iš profilio serverių.dat. Pridėkite serverių žaidime ir jie bus rodomi čia.',
+    'Серверов пока нет': 'Serverių dar nėra',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Pridėkite serverių žaidime ir jie čia pasirodys automatiškai.',
   },
   lv: {
     'Включить анимации': 'Iespējot animācijas',
@@ -11898,6 +11937,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Логов пока нет — запустите игру.': 'Vēl nav žurnālu — sāciet spēli.',
     'Лог прошлого запуска': 'Pieteikties no iepriekšējās darbības',
     'Логи появятся при запуске игры.': 'Žurnāli parādīsies, kad spēle sāksies.',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Saraksts nāk no profila servers.dat. Pievienojiet serverus spēlē, un tie parādīsies šeit.',
+    'Серверов пока нет': 'Pagaidām nav serveru',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Pievienojiet serverus spēlē, un tie šeit parādīsies automātiski.',
   },
   kk: {
     'Включить анимации': 'Анимацияларды қосу',
@@ -12748,6 +12790,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Бастапқы код',
     'Багрепорты': 'Қате туралы есептер',
     'Вики': 'Wiki',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Тізім профильдің servers.dat сайтынан алынған. Ойынға серверлерді қосыңыз және олар осы жерде пайда болады.',
+    'Серверов пока нет': 'Әлі серверлер жоқ',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Ойынға серверлерді қосыңыз және олар автоматты түрде осы жерде пайда болады.',
   },
   ka: {
     'Включить анимации': 'ანიმაციების ჩართვა',
@@ -13598,6 +13643,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'წყაროს კოდი',
     'Багрепорты': 'შეცდომის შესახებ იუწყება',
     'Вики': 'ვიკი',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'სია მოდის პროფილის სერვერებიდან.dat. დაამატეთ სერვერები თამაშში და ისინი აქ გამოჩნდება.',
+    'Серверов пока нет': 'სერვერები ჯერ არ არის',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'დაამატეთ სერვერები თამაშში და ისინი ავტომატურად გამოჩნდება აქ.',
   },
   iu: {
     'Никогда': 'ᐊᑐᓚᐅᖅᓯᒪᙱᑦᑐᖅ',
@@ -14448,6 +14496,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'ᓇᑭᙶᕐᒪᖔᖅ ᓇᓗᓇᐃᒃᑯᑕᖅ',
     'Багрепорты': 'ᖁᐱᕐᕈᓄᑦ ᐅᓂᒃᑳᑦ',
     'Вики': 'ᐅᐃᑭ',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'ᑎᑎᕋᖅᓯᒪᔪᑦ ᑕᕝᕙᙵᑦ ᖃᕆᑕᐅᔭᒃᑯᑦ ᑐᖅᑯᐃᕕᒻᒥᑦ.dat. ᐃᓚᓕᐅᑎᓗᒋᑦ ᖃᕆᑕᐅᔭᒃᑯᑦ ᑐᖅᑯᐃᕕᐅᔪᑦ ᐱᙳᐊᕐᓂᐅᔪᒥ ᐊᒻᒪᓗ ᑕᕝᕙᓂ ᓴᖅᑭᓐᓂᐊᖅᑐᑦ.',
+    'Серверов пока нет': 'ᖃᕆᑕᐅᔭᒃᑯᑦ ᑐᖅᑯᐃᕕᒃᑕᖃᙱᓚᖅ ᓱᓕ',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'ᐃᓚᓕᐅᑎᓗᒋᑦ ᖃᕆᑕᐅᔭᒃᑯᑦ ᑐᖅᑯᐃᕕᐅᔪᑦ ᐱᙳᐊᕐᓂᐅᔪᒥ ᐊᒻᒪᓗ ᑕᕝᕙᓂ ᓴᖅᑭᑲᐅᑎᒋᓂᐊᖅᑐᑦ.',
   },
   pl: {
     'Никогда': 'Nigdy',
@@ -15298,6 +15349,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Kod źródłowy',
     'Багрепорты': 'Raporty o błędach',
     'Вики': 'Wiki',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Lista pochodzi z plikuservers.dat profilu. Dodaj serwery w grze, a pojawią się tutaj.',
+    'Серверов пока нет': 'Nie ma jeszcze serwerów',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Dodaj serwery w grze, a pojawią się one tutaj automatycznie.',
   },
   uk: {
     'Никогда': 'Ніколи',
@@ -16148,6 +16202,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Вихідний код',
     'Багрепорты': 'Звіти про помилки',
     'Вики': 'Вікі',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Список взято з servers.dat профілю. Додайте сервери в грі, і вони з’являться тут.',
+    'Серверов пока нет': 'Серверів ще немає',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Додайте сервери в грі, і вони з’являться тут автоматично.',
   },
   eo: {
     'Никогда': 'Neniam',
@@ -16998,6 +17055,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Fontkodo',
     'Багрепорты': 'Cimraportoj',
     'Вики': 'Vikio',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'La listo venas de la profilo servers.dat. Aldonu servilojn en la ludo kaj ili aperos ĉi tie.',
+    'Серверов пока нет': 'Ankoraŭ neniuj serviloj',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Aldonu servilojn en la ludo kaj ili aperos ĉi tie aŭtomate.',
   },
   fa: {
     'Никогда': 'هرگز',
@@ -17848,6 +17908,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'کد منبع',
     'Багрепорты': 'گزارش اشکال',
     'Вики': 'ویکی',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'لیست از servers.dat پروفایل می آید. سرورهای داخل بازی را اضافه کنید و در اینجا ظاهر می شوند.',
+    'Серверов пока нет': 'هنوز سروری وجود ندارد',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'سرورهای داخل بازی را اضافه کنید و به طور خودکار در اینجا ظاهر می شوند.',
   },
   ar: {
     'Никогда': 'أبداً',
@@ -18698,6 +18761,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'كود المصدر',
     'Багрепорты': 'تقارير الأخطاء',
     'Вики': 'ويكي',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'تأتي القائمة من خوادم الملف الشخصي. أضف خوادم داخل اللعبة وستظهر هنا.',
+    'Серверов пока нет': 'لا توجد خوادم حتى الآن',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'أضف خوادم داخل اللعبة وستظهر هنا تلقائيًا.',
   },
   he: {
     'Никогда': 'לְעוֹלָם לֹא',
@@ -19548,6 +19614,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Вики': 'ויקי',
     'Выключен в настройках лаунчера — запуск не проверяется.': 'מושבת בהגדרות המשגר ​​- ההשקה לא מסומנת.',
     'В папках профиля нет архивов для проверки.': 'אין ארכיונים לבדיקה בתיקיות הפרופיל.',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'הרשימה מגיעה מהשרתים של הפרופיל של הפרופיל. הוסף שרתים במשחק והם יופיעו כאן.',
+    'Серверов пока нет': 'עדיין אין שרתים',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'הוסף שרתים במשחק והם יופיעו כאן באופן אוטומטי.',
   },
   az: {
     'Никогда': 'Heç vaxt',
@@ -20398,6 +20467,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Mənbə kodu',
     'Багрепорты': 'Bug hesabatları',
     'Вики': 'Viki',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Siyahı profilin servers.dat saytından gəlir. Oyundaxili serverlər əlavə edin və onlar burada görünəcək.',
+    'Серверов пока нет': 'Hələ server yoxdur',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Oyundaxili serverlər əlavə edin və onlar avtomatik olaraq burada görünəcək.',
   },
   hy: {
     'Никогда': 'Երբեք',
@@ -21248,6 +21320,9 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Աղբյուրի կոդը',
     'Багрепорты': 'Սխալը հաղորդում է',
     'Вики': 'Վիքի',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'Ցուցակը գալիս է պրոֆիլի servers.dat-ից: Ավելացրեք սերվերներ խաղի մեջ, և դրանք կհայտնվեն այստեղ:',
+    'Серверов пока нет': 'Սերվերներ դեռ չկան',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Ավելացրեք սերվերներ խաղի մեջ, և դրանք ավտոմատ կերպով կհայտնվեն այստեղ:',
   },
   pt: {
     'Никогда': 'Nunca',
@@ -22098,5 +22173,8 @@ export const AUTO: Record<string, Record<string, string>> = {
     'Исходный код': 'Código fonte',
     'Багрепорты': 'Relatórios de bugs',
     'Вики': 'Wikipédia',
+    'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'A lista vem do server.dat do perfil. Adicione servidores no jogo e eles aparecerão aqui.',
+    'Серверов пока нет': 'Ainda não há servidores',
+    'Добавьте серверы в игре — они появятся здесь автоматически.': 'Adicione servidores no jogo e eles aparecerão aqui automaticamente.',
   },
 };

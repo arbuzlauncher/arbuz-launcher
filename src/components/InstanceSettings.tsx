@@ -21,6 +21,7 @@ import { ConsoleTab } from './ConsoleTab';
 import { PackTab } from './PackTab';
 import { ScannerTab } from './ScannerTab';
 import { ScreenshotsTab } from './ScreenshotsTab';
+import { ServersTab } from './ServersTab';
 import { BenchTab } from './BenchTab';
 import { SyncTab } from './SyncTab';
 import { UpdatesTab } from './UpdatesTab';
@@ -34,6 +35,7 @@ const SECS: [Sec, string][] = [
   ['p', 'Сборка'],
   ['u', 'Обновления'],
   ['m', 'Миры'],
+  ['srv', 'Серверы'],
   ['v', 'Консоль'],
   ['s', 'Скриншоты'],
   ['sc', 'Безопасность'],
@@ -489,6 +491,8 @@ export function InstanceSettings({ inst }: { inst: Instance }) {
     body = <UpdatesTab inst={inst} />;
   } else if (s.sec === 'm') {
     body = <WorldsTab inst={inst} />;
+  } else if (s.sec === 'srv') {
+    body = <ServersTab key={inst.id} inst={inst} />;
   } else if (s.sec === 'v') {
     body = <ConsoleTab inst={inst} />;
   } else if (s.sec === 'sc') {
@@ -519,7 +523,7 @@ export function InstanceSettings({ inst }: { inst: Instance }) {
           </div>
         ))}
       </div>
-      <div style={{ flex: 1, minWidth: 0, maxWidth: ['c', 'p', 'm', 's', 'v', 'sc', 'sy', 'bm'].includes(s.sec) ? 'none' : 640 }}>{body}</div>
+      <div style={{ flex: 1, minWidth: 0, maxWidth: ['c', 'p', 'm', 'srv', 's', 'v', 'sc', 'sy', 'bm'].includes(s.sec) ? 'none' : 640 }}>{body}</div>
     </div>
   );
 }

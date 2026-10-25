@@ -243,9 +243,6 @@ export const PlayTab = memo(function PlayTab({ inst }: { inst: Instance }) {
                 </button>
               ))}
             </div>
-            <div className="hint" style={{ marginTop: 6 }}>
-              {t('Закреплённые серверы — в разделе «Серверы»')}
-            </div>
           </div>
         )}
         <div className="tile t2" style={{ flexDirection: 'column', '--i': 1 } as CSSProperties}>

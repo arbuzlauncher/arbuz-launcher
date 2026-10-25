@@ -446,6 +446,12 @@ export interface CatalogServer {
   mode: string;
 }
 
+/** Сервер из servers.dat профиля. */
+export interface ServerEntry {
+  name: string;
+  ip: string;
+}
+
 /** Результат Server List Ping. */
 export interface PingInfo {
   host: string;
@@ -717,6 +723,7 @@ export const api = {
 
   serversCatalog: (refresh: boolean) => invoke<CatalogServer[]>('servers_catalog', { refresh }),
   serverPing: (ip: string) => invoke<PingInfo>('server_ping', { ip }),
+  serversDatList: (id: string) => invoke<ServerEntry[]>('servers_dat_list', { id }),
   serversDatAdd: (id: string, name: string, ip: string) =>
     invoke<void>('servers_dat_add', { id, name, ip }),
   pinnedServers: (id: string) => invoke<PinnedServer[]>('pinned_servers', { id }),

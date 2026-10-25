@@ -1090,6 +1090,12 @@ pub async fn server_ping(ip: String) -> Res<crate::servers::PingInfo> {
     Ok(crate::servers::ping(&ip).await)
 }
 
+/// Список серверов из servers.dat профиля (только чтение).
+#[tauri::command]
+pub async fn servers_dat_list(id: String) -> Res<Vec<crate::servers::ServerEntry>> {
+    crate::servers::list_servers(&id).await
+}
+
 /// Добавляет сервер в servers.dat профиля.
 #[tauri::command]
 pub async fn servers_dat_add(id: String, name: String, ip: String) -> Res<()> {

@@ -341,18 +341,6 @@ export function AppSettings() {
               {t('Без ключа каталог CurseForge работает через публичный прокси')}
             </div>
             <label className="l" style={{ marginTop: 18 }}>
-              {t('URL списка серверов')}
-            </label>
-            <input
-              type="text"
-              placeholder="https://example.com/servers.json"
-              value={c.serversUrl}
-              onChange={(e) => set({ serversUrl: e.target.value })}
-            />
-            <div className="hint" style={{ marginTop: 6 }}>
-              {t('Статичный JSON с серверами для раздела «Серверы». Формат описан в README проекта.')}
-            </div>
-            <label className="l" style={{ marginTop: 18 }}>
               {t('Папка данных')}
             </label>
             <div className="row g8">

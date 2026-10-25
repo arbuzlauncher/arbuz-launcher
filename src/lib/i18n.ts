@@ -953,6 +953,9 @@ const EN: Table = {
   'Исходный код': 'Source code',
   'Багрепорты': 'Bug reports',
   'Вики': 'Wiki',
+  'Список берётся из servers.dat профиля. Добавьте серверы в игре — они появятся здесь.': 'The list comes from the profile’s servers.dat. Add servers in-game and they will appear here.',
+  'Серверов пока нет': 'No servers yet',
+  'Добавьте серверы в игре — они появятся здесь автоматически.': 'Add servers in-game and they will appear here automatically.',
 
 };
 

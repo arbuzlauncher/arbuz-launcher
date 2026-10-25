@@ -242,6 +242,7 @@ pub fn run() {
             commands::find_class_owner,
             commands::servers_catalog,
             commands::server_ping,
+            commands::servers_dat_list,
             commands::servers_dat_add,
             commands::pinned_servers,
             commands::pin_server,

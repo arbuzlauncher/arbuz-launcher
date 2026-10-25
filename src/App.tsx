@@ -16,7 +16,6 @@ import { LayoutEdit } from './components/LayoutEdit';
 import { LauncherUpdateModal } from './components/LauncherUpdateModal';
 import { Onboarding } from './components/Onboarding';
 import { ProfileView } from './components/ProfileView';
-import { ServersView } from './components/ServersView';
 import { Sidebar } from './components/Sidebar';
 import { Titlebar } from './components/Titlebar';
 import { Toast } from './components/Toast';
@@ -274,8 +273,6 @@ export default function App() {
                 <Installations />
               ) : view === 'coop' ? (
                 <CoopTab />
-              ) : view === 'servers' ? (
-                <ServersView />
               ) : view === 'accounts' ? (
                 <Accounts />
               ) : view === 'p' ? (
