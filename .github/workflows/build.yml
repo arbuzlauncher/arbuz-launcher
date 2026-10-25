@@ -110,7 +110,7 @@ jobs:
         run: pnpm test
 
   windows:
-    name: Windows (exe, setup, tar.xz)
+    name: Windows (exe + setup)
     needs: prepare
     if: needs.prepare.outputs.release == 'true'
     runs-on: windows-latest
@@ -173,13 +173,6 @@ jobs:
           if (-not $setup) { throw 'установщик не собрался' }
           Copy-Item $setup.FullName "out/Arbuz-Launcher-$v-windows-x64-setup.exe"
           Copy-Item 'src-tauri\target\release\arbuz-launcher.exe' "out/Arbuz-Launcher-$v-windows-x64-portable.exe"
-
-          $z = if (Get-Command 7z -ErrorAction SilentlyContinue) { (Get-Command 7z).Source } else { 'C:\Program Files\7-Zip\7z.exe' }
-          $tar = Join-Path $env:RUNNER_TEMP 'arbuz-portable.tar'
-          Push-Location out
-          & $z a -ttar $tar "Arbuz-Launcher-$v-windows-x64-portable.exe" | Out-Null
-          Pop-Location
-          & $z a -txz "$PWD\out\Arbuz-Launcher-$v-windows-x64.tar.xz" $tar | Out-Null
           Get-ChildItem out | Select-Object Name, Length
 
       - uses: actions/upload-artifact@v4
@@ -190,7 +183,7 @@ jobs:
           path: out/*
 
   macos:
-    name: macOS (dmg, tar.xz)
+    name: macOS (universal dmg)
     needs: prepare
     if: needs.prepare.outputs.release == 'true'
     runs-on: macos-14
@@ -239,10 +232,6 @@ jobs:
           dmg=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name '*.dmg' | head -n 1)
           test -n "$dmg"
           cp "$dmg" "out/Arbuz-Launcher-$v-macos-universal.dmg"
-
-          app=$(find src-tauri/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' | head -n 1)
-          test -n "$app"
-          tar -cJf "out/Arbuz-Launcher-$v-macos-universal.tar.xz" -C "$(dirname "$app")" "$(basename "$app")"
           ls -lh out
 
       - uses: actions/upload-artifact@v4

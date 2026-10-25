@@ -11,7 +11,8 @@ Releases: https://github.com/arbuzlauncher/arbuz-launcher/releases
   `...-windows-x64-portable.exe` (single file). The installer puts the launcher in
   `%USERPROFILE%\arbuz-launcher`.
 - **macOS** — `...-macos-universal.dmg`, works on both Apple Silicon and Intel.
-- **Linux** — `...-linux-x86_64.AppImage`, `...-linux-amd64.deb` or `...-linux-x86_64.rpm`.
+- **Linux** — `...-linux-x86_64.AppImage`, `...-linux-amd64.deb`,
+  `...-linux-x86_64.rpm` or `...-linux-x86_64.tar.xz` (binary + `.desktop` file).
 
 ## Build from source
 
