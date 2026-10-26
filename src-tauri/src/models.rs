@@ -352,6 +352,16 @@ pub struct Config {
     pub check_launcher_updates: bool,
     /// «Ускоритель лаунчера»: локальный прокси с разбиением первого TLS-пакета.
     pub launcher_accel: bool,
+    /// Ручной прокси для HTTP(S)-запросов лаунчера.
+    pub proxy_enabled: bool,
+    /// "http" | "socks5" | "socks5h".
+    pub proxy_kind: String,
+    pub proxy_host: String,
+    /// 1..65535; 0 в старых конфигах трактуется как значение по умолчанию.
+    pub proxy_port: u32,
+    pub proxy_user: String,
+    /// Хранится в config.json; в webview отдаётся маской.
+    pub proxy_pass: String,
     /// Закрытие окна прячет лаунчер в трей, а не выходит.
     pub close_to_tray: bool,
     pub hide_empty: bool,
@@ -407,6 +417,12 @@ impl Default for Config {
             show_console: true,
             check_launcher_updates: true,
             launcher_accel: false,
+            proxy_enabled: false,
+            proxy_kind: "http".into(),
+            proxy_host: String::new(),
+            proxy_port: 1080,
+            proxy_user: String::new(),
+            proxy_pass: String::new(),
             close_to_tray: true,
             hide_empty: false,
             mod_isolation_enabled: false,
@@ -444,6 +460,20 @@ impl Config {
         // Ускоритель имеет смысл только в русской и английской версии UI.
         if self.lang != "ru" && self.lang != "en" {
             self.launcher_accel = false;
+        }
+        // Ручной прокси: тип, адрес и порт. Пароль по пробелам не режем —
+        // они могут быть его частью, но длину ограничиваем.
+        self.proxy_kind = self.proxy_kind.trim().to_ascii_lowercase();
+        if !matches!(self.proxy_kind.as_str(), "http" | "socks5" | "socks5h") {
+            self.proxy_kind = "http".into();
+        }
+        self.proxy_host = self.proxy_host.trim().chars().take(253).collect();
+        self.proxy_user = self.proxy_user.trim().chars().take(128).collect();
+        self.proxy_pass = self.proxy_pass.chars().take(256).collect();
+        if self.proxy_port == 0 {
+            self.proxy_port = 1080;
+        } else if self.proxy_port > 65535 {
+            self.proxy_port = 65535;
         }
         if !matches!(self.mod_isolation_level.as_str(), "min" | "std" | "strict") {
             self.mod_isolation_level = "min".into();

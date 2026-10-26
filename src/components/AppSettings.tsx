@@ -26,6 +26,7 @@ export function AppSettings() {
   const t = useT();
   const c = s.config;
   const [apiKey, setApiKey] = useState(c.curseforgeApiKey);
+  const [proxyPass, setProxyPass] = useState(c.proxyPass);
   const [models, setModels] = useState<string[]>([]);
   const set = (patch: Partial<Config>) => s.setConfig({ ...c, ...patch });
   // Акцент меняется перетаскиванием: пишем на диск с задержкой, а не на каждый пиксель.
@@ -375,6 +376,77 @@ export function AppSettings() {
               </div>
             </>
           )}
+          <div className="sw">
+            <span>{t('Использовать прокси')}</span>
+            <Toggle on={c.proxyEnabled} onClick={() => set({ proxyEnabled: !c.proxyEnabled })} />
+          </div>
+          {c.proxyEnabled && (
+            <>
+              <div className="sw">
+                <span>{t('Тип прокси')}</span>
+                <select
+                  style={{ width: 220 }}
+                  value={c.proxyKind}
+                  onChange={(e) => set({ proxyKind: e.target.value })}
+                >
+                  <option value="http">{t('HTTP')}</option>
+                  <option value="socks5">{t('SOCKS5')}</option>
+                  <option value="socks5h">{t('SOCKS5h')}</option>
+                </select>
+              </div>
+              <div className="sw">
+                <span>{t('Адрес прокси')}</span>
+                <input
+                  type="text"
+                  style={{ width: 220 }}
+                  placeholder="127.0.0.1"
+                  value={c.proxyHost}
+                  onChange={(e) => setConfigLive({ ...c, proxyHost: e.target.value })}
+                />
+              </div>
+              <div className="sw">
+                <span>{t('Порт')}</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  style={{ width: 220 }}
+                  value={c.proxyPort}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    if (!Number.isFinite(n)) return;
+                    setConfigLive({ ...c, proxyPort: Math.min(65535, Math.max(1, n)) });
+                  }}
+                />
+              </div>
+              <div className="sw">
+                <span>{t('Логин')}</span>
+                <input
+                  type="text"
+                  style={{ width: 220 }}
+                  value={c.proxyUser}
+                  onChange={(e) => setConfigLive({ ...c, proxyUser: e.target.value })}
+                />
+              </div>
+              <div className="sw">
+                <span>{t('Пароль')}</span>
+                <input
+                  type="password"
+                  style={{ width: 220 }}
+                  value={proxyPass}
+                  onChange={(e) => setProxyPass(e.target.value)}
+                  onBlur={() => set({ proxyPass })}
+                />
+              </div>
+            </>
+          )}
+          <div className="hint" style={{ padding: '4px 0 12px' }}>
+            {c.proxyEnabled && !c.proxyHost.trim()
+              ? t('Укажите хост и порт прокси.')
+              : c.proxyEnabled
+                ? t('Все HTTP(S)-запросы лаунчера идут через прокси. Если прокси включён, ускоритель не используется.')
+                : t('HTTP, SOCKS5 или SOCKS5 с удалённым DNS. Локальные адреса идут напрямую.')}
+          </div>
           <div className="sw">
             <span>{t('ИИ-ассистент сборок')}</span>
             <Toggle on={c.aiBuilder} onClick={() => set({ aiBuilder: !c.aiBuilder })} />

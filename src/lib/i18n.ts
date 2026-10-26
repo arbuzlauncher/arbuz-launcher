@@ -548,6 +548,18 @@ const EN: Table = {
   'Ускоритель лаунчера': 'Launcher accelerator',
   'Если сборки медленно скачиваются, включите эту функцию.': 'If modpacks download slowly, enable this function.',
   'Разбивает первый TLS-пакет на части, чтобы DPI не прочитал домен. Помогает, если не открываются Modrinth, CurseForge, GitHub или не качаются версии. Может не работать у некоторых провайдеров.': 'Splits the first TLS packet so DPI cannot read the domain. Helps when Modrinth, CurseForge, GitHub or version downloads do not load. May not work with some ISPs.',
+  // сеть: прокси
+  'Сеть': 'Network',
+  'Использовать прокси': 'Use a proxy',
+  'Тип прокси': 'Proxy type',
+  'Адрес прокси': 'Proxy address',
+  'Логин': 'Username',
+  'HTTP': 'HTTP',
+  'SOCKS5': 'SOCKS5',
+  'SOCKS5h': 'SOCKS5h',
+  'Укажите хост и порт прокси.': 'Enter the proxy address and port.',
+  'Все HTTP(S)-запросы лаунчера идут через прокси. Если прокси включён, ускоритель не используется.': 'All launcher HTTP(S) requests go through the proxy. When the proxy is on, the accelerator is not used.',
+  'HTTP, SOCKS5 или SOCKS5 с удалённым DNS. Локальные адреса идут напрямую.': 'HTTP, SOCKS5 or SOCKS5 with remote DNS. Local addresses go directly.',
   // краш-ассистент: заголовки
   'Игра упала': 'The game crashed',
   'Отчёт не найден': 'No crash report found',

@@ -10,6 +10,8 @@ const BIOMES: [&str; 5] = ["plains", "taiga", "desert", "nether", "snow"];
 
 /// Маска, которой ключ CurseForge подменяется при выдаче в webview.
 const CF_KEY_MASK: &str = "************";
+/// Маска пароля прокси: в webview сам пароль не уходит.
+const PROXY_PASS_MASK: &str = "************";
 
 /// Читает config.json и приводит поля к безопасным значениям.
 async fn read_config() -> Res<Config> {
@@ -120,10 +122,14 @@ pub async fn get_config(state: State<'_, AppState>) -> Res<Config> {
     state
         .launcher_accel
         .store(cfg.launcher_accel, std::sync::atomic::Ordering::Relaxed);
-    // Ключ CurseForge в webview не отдаём — только признак «задан».
+    crate::state::set_manual_proxy(&cfg);
+    // Ключ CurseForge и пароль прокси в webview не отдаём — только маску.
     let mut shown = cfg;
     if !shown.curseforge_api_key.is_empty() {
         shown.curseforge_api_key = CF_KEY_MASK.to_string();
+    }
+    if !shown.proxy_pass.is_empty() {
+        shown.proxy_pass = PROXY_PASS_MASK.to_string();
     }
     Ok(shown)
 }
@@ -141,19 +147,30 @@ pub async fn set_config(state: State<'_, AppState>, mut cfg: Config) -> Res<()> 
             guard.curseforge_api_key.clone()
         };
     }
+    if cfg.proxy_pass == PROXY_PASS_MASK {
+        cfg.proxy_pass = if guard.proxy_pass.is_empty() {
+            read_config().await?.proxy_pass
+        } else {
+            guard.proxy_pass.clone()
+        };
+    }
     store::write_json_atomic(&paths::config_file(), &cfg).await?;
     state
         .launcher_accel
         .store(cfg.launcher_accel, std::sync::atomic::Ordering::Relaxed);
+    crate::state::set_manual_proxy(&cfg);
     *guard = cfg;
     Ok(())
 }
 
-/// Экспорт настроек в JSON. Ключ CurseForge в файл не попадает.
+/// Экспорт настроек в JSON. Ключ CurseForge и пароль прокси в файл не попадают.
 #[tauri::command]
 pub async fn export_settings(state: State<'_, AppState>, path: String) -> Res<()> {
     let mut cfg = state.config.lock().await.clone();
     cfg.curseforge_api_key = CF_KEY_MASK.to_string();
+    if !cfg.proxy_pass.is_empty() {
+        cfg.proxy_pass = PROXY_PASS_MASK.to_string();
+    }
     let p = settings_path(&path)?;
     let data = serde_json::to_vec_pretty(&cfg)?;
     tokio::fs::write(&p, data).await?;
@@ -172,9 +189,12 @@ pub async fn import_settings(state: State<'_, AppState>, path: String) -> Res<Co
     let mut cfg: Config = serde_json::from_str(&text)
         .map_err(|e| AppError::Msg(format!("Это не файл настроек Arbuz Launcher: {e}")))?;
     cfg.sanitize();
-    // Маска вместо ключа — оставляем текущий ключ.
+    // Маска вместо ключа или пароля — оставляем текущие значения.
     if cfg.curseforge_api_key == CF_KEY_MASK {
         cfg.curseforge_api_key = state.config.lock().await.curseforge_api_key.clone();
+    }
+    if cfg.proxy_pass == PROXY_PASS_MASK {
+        cfg.proxy_pass = state.config.lock().await.proxy_pass.clone();
     }
     // Визард знакомства после импорта не нужен.
     cfg.onboarded = true;
@@ -182,8 +202,16 @@ pub async fn import_settings(state: State<'_, AppState>, path: String) -> Res<Co
     state
         .launcher_accel
         .store(cfg.launcher_accel, std::sync::atomic::Ordering::Relaxed);
+    crate::state::set_manual_proxy(&cfg);
     *state.config.lock().await = cfg.clone();
-    Ok(cfg)
+    let mut shown = cfg;
+    if !shown.curseforge_api_key.is_empty() {
+        shown.curseforge_api_key = CF_KEY_MASK.to_string();
+    }
+    if !shown.proxy_pass.is_empty() {
+        shown.proxy_pass = PROXY_PASS_MASK.to_string();
+    }
+    Ok(shown)
 }
 
 /// Путь к файлу настроек: абсолютный, без `..`, с расширением `.json`.

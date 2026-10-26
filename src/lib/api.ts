@@ -126,8 +126,17 @@ export interface Config {
   showConsole: boolean;
   /** Проверять обновления лаунчера на GitHub при запуске. */
   checkLauncherUpdates: boolean;
-  /** «Ускоритель лаунчера»: локальный прокси с разбиением TLS ClientHello. */
+  /** «Ускоритель лаунчера»: локальный прокси с разбиением TLS ClientHello и HTTP-запросов. */
   launcherAccel: boolean;
+  /** Ручной прокси для HTTP(S)-запросов лаунчера. */
+  proxyEnabled: boolean;
+  /** http | socks5 | socks5h. */
+  proxyKind: string;
+  proxyHost: string;
+  proxyPort: number;
+  proxyUser: string;
+  /** Хранится в config.json; в webview приходит маской. */
+  proxyPass: string;
   /** Закрытие окна прячет лаунчер в трей. */
   closeToTray: boolean;
   hideEmpty: boolean;

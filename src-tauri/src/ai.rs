@@ -104,6 +104,8 @@ static HTTP: Lazy<reqwest::Client> = Lazy::new(|| {
         .connect_timeout(Duration::from_secs(15))
         .read_timeout(Duration::from_secs(90))
         .pool_max_idle_per_host(4)
+        // Ручной прокси из настроек лаунчера (если он включён).
+        .proxy(reqwest::Proxy::custom(crate::state::manual_proxy_for))
         .build()
         .unwrap_or_else(|_| reqwest::Client::new())
 });
