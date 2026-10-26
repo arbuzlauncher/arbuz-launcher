@@ -38,6 +38,9 @@ const LANGS = {
 const STRINGS = [
   ['RunApp', 'Run Arbuz Launcher'],
   ['Desktop', 'Create desktop shortcut'],
+  ['StartMenuShortcut', 'Create a Start Menu shortcut'],
+  ['ShortcutsTitle', 'Shortcuts'],
+  ['ShortcutsSubtitle', 'Choose which shortcuts to create.'],
   ['AskData', 'Also delete settings, profiles, worlds and accounts?'],
   ['Busy', 'The launcher is running. Close it and try again.'],
   [
@@ -47,6 +50,10 @@ const STRINGS = [
   [
     'NeedAdmin',
     'This version was installed for all users. Run the installer as administrator to remove it.',
+  ],
+  [
+    'NeedAdminInstall',
+    'Administrator rights are required to install for all users.',
   ],
   ['MULTIUSER_TEXT_INSTALLMODE_TITLE', 'Installation mode'],
   [

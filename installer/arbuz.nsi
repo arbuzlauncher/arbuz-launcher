@@ -5,6 +5,7 @@ ManifestDPIAware true
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
+!include "nsDialogs.nsh"
 
 !ifndef ROOT
   !define ROOT ".."
@@ -26,21 +27,11 @@ ManifestDPIAware true
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}"
 
 ; ---------------------------------------------------------------------------
-; Установка для текущего пользователя или для всех (с правами администратора).
-; MultiUser сам показывает выбор режима и запрашивает UAC через «highest».
+; Установщик не просит права администратора при запуске. Режим установки
+; выбирается в конце мастера: «для всех» перезапускает установщик через UAC
+; (ExecShell runas), «для одного» ставится сразу без повышения прав.
 ; ---------------------------------------------------------------------------
-!define MULTIUSER_EXECUTIONLEVEL Highest
-!define MULTIUSER_MUI
-!define MULTIUSER_INSTALLMODE_COMMANDLINE
-!define MULTIUSER_INSTALLMODE_DEFAULT_CURRENTUSER
-!define MULTIUSER_USE_PROGRAMFILES64
-!define MULTIUSER_INSTALLMODE_INSTDIR "Arbuz Launcher"
-!define MULTIUSER_INSTALLMODE_INSTDIR_REGISTRY_KEY "${APP_KEY}"
-!define MULTIUSER_INSTALLMODE_INSTDIR_REGISTRY_VALUENAME "InstallDir"
-!define MULTIUSER_INSTALLMODE_DEFAULT_REGISTRY_KEY "${APP_KEY}"
-!define MULTIUSER_INSTALLMODE_DEFAULT_REGISTRY_VALUENAME "InstallMode"
-!define MULTIUSER_INSTALLMODE_FUNCTION SetInstallDir
-!include "MultiUser.nsh"
+RequestExecutionLevel user
 
 Name "${APP_NAME}"
 OutFile "${ROOT}\src-tauri\target\release\bundle\arbuz\Arbuz-Launcher-${APP_VERSION}-setup.exe"
@@ -67,15 +58,16 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "${APP_PUBLISHER}"
 !define MUI_LANGDLL_REGISTRY_KEY "${APP_KEY}"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Language"
 
-!insertmacro MULTIUSER_PAGE_INSTALLMODE
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfElevated
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfElevated
 !insertmacro MUI_PAGE_DIRECTORY
+Page custom ShortcutsPageCreate ShortcutsPageLeave
+Page custom ModePageCreate ModePageLeave
 !insertmacro MUI_PAGE_INSTFILES
-!define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
+!define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_TEXT "$(RunApp)"
-!define MUI_FINISHPAGE_SHOWREADME
-!define MUI_FINISHPAGE_SHOWREADME_TEXT "$(Desktop)"
-!define MUI_FINISHPAGE_SHOWREADME_FUNCTION CreateDesktopShortcut
+!define MUI_FINISHPAGE_RUN_FUNCTION RunLauncher
 !insertmacro MUI_PAGE_FINISH
 
 !insertmacro MUI_UNPAGE_CONFIRM
@@ -119,6 +111,12 @@ LangString RunApp ${LANG_ENGLISH} "Run ${APP_NAME}"
 LangString RunApp ${LANG_RUSSIAN} "Запустить ${APP_NAME}"
 LangString Desktop ${LANG_ENGLISH} "Create desktop shortcut"
 LangString Desktop ${LANG_RUSSIAN} "Создать ярлык на рабочем столе"
+LangString StartMenuShortcut ${LANG_ENGLISH} "Create a Start Menu shortcut"
+LangString StartMenuShortcut ${LANG_RUSSIAN} "Создать ярлык в меню «Пуск»"
+LangString ShortcutsTitle ${LANG_ENGLISH} "Shortcuts"
+LangString ShortcutsTitle ${LANG_RUSSIAN} "Ярлыки"
+LangString ShortcutsSubtitle ${LANG_ENGLISH} "Choose which shortcuts to create."
+LangString ShortcutsSubtitle ${LANG_RUSSIAN} "Выберите, какие ярлыки создать."
 LangString AskData ${LANG_ENGLISH} "Also delete settings, profiles, worlds and accounts?"
 LangString AskData ${LANG_RUSSIAN} "Удалить также настройки, профили, миры и аккаунты?"
 LangString Busy ${LANG_ENGLISH} "The launcher is running. Close it and try again."
@@ -127,6 +125,8 @@ LangString AlreadyInstalled ${LANG_ENGLISH} "${APP_NAME} is already installed:$\
 LangString AlreadyInstalled ${LANG_RUSSIAN} "${APP_NAME} уже установлен:$\r$\n$ExistingDir$\r$\n$\r$\nДа — переустановить, настройки сохранятся.$\r$\nНет — удалить.$\r$\nОтмена — выйти."
 LangString NeedAdmin ${LANG_ENGLISH} "This version was installed for all users. Run the installer as administrator to remove it."
 LangString NeedAdmin ${LANG_RUSSIAN} "Эта версия установлена для всех пользователей. Запустите установщик от имени администратора, чтобы удалить её."
+LangString NeedAdminInstall ${LANG_ENGLISH} "Administrator rights are required to install for all users."
+LangString NeedAdminInstall ${LANG_RUSSIAN} "Для установки для всех пользователей нужны права администратора."
 
 ; Режим установки: по умолчанию — для одного пользователя (рекомендуется).
 LangString MULTIUSER_TEXT_INSTALLMODE_TITLE ${LANG_ENGLISH} "Installation mode"
@@ -147,38 +147,40 @@ LangString MULTIUSER_INNERTEXT_INSTALLMODE_CURRENTUSER ${LANG_RUSSIAN} "Уста
 !macroend
 !insertmacro INSTALLER_FALLBACKS ${LANG_OLBANIAN}
 
+Var InstallMode
+Var IsAdmin
+Var Elevated
+Var StartMenuChk
+Var DesktopChk
 Var ExistingUninstall
 Var ExistingDir
 Var ExistingMode
+Var SmCheckbox
+Var DtCheckbox
+Var ModeRadioAll
+Var ModeRadioCur
 
-; Каталог по умолчанию: Program Files для «всех», профиль — для одного.
-; Если лаунчер уже стоял, берём InstallDir из реестра.
-Function SetInstallDir
-  ${If} $MultiUser.InstallMode == "AllUsers"
-    ReadRegStr $0 HKLM "${APP_KEY}" "InstallDir"
-    StrCmp $0 "" 0 existing
-    StrCpy $INSTDIR "$PROGRAMFILES64\Arbuz Launcher"
-    Goto done
-  ${Else}
-    ReadRegStr $0 HKCU "${APP_KEY}" "InstallDir"
-    StrCmp $0 "" 0 existing
-    StrCpy $INSTDIR "$PROFILE\arbuz-launcher"
-    Goto done
-  ${EndIf}
-  existing:
-  StrCpy $INSTDIR $0
+; Права администратора есть только у действительно повышенного процесса:
+; проверяем записью в системную папку (у обычного пользователя её нет).
+Function DetectElevated
+  StrCpy $IsAdmin 0
+  ClearErrors
+  FileOpen $0 "$WINDIR\arbuz-elev-test.tmp" w
+  IfErrors done
+  FileClose $0
+  Delete "$WINDIR\arbuz-elev-test.tmp"
+  StrCpy $IsAdmin 1
   done:
 FunctionEnd
 
-; Для деинсталлятора каталог всегда берём из реестра выбранного режима.
-Function un.SetUninstallDir
-  ${If} $MultiUser.InstallMode == "AllUsers"
-    ReadRegStr $0 HKLM "${APP_KEY}" "InstallDir"
-  ${Else}
-    ReadRegStr $0 HKCU "${APP_KEY}" "InstallDir"
-  ${EndIf}
-  StrCmp $0 "" done
-    StrCpy $INSTDIR $0
+Function un.DetectElevated
+  StrCpy $IsAdmin 0
+  ClearErrors
+  FileOpen $0 "$WINDIR\arbuz-elev-test.tmp" w
+  IfErrors done
+  FileClose $0
+  Delete "$WINDIR\arbuz-elev-test.tmp"
+  StrCpy $IsAdmin 1
   done:
 FunctionEnd
 
@@ -204,45 +206,259 @@ Function DetectExisting
   done:
 FunctionEnd
 
-Function .onInit
-  SetRegView 64
-  !insertmacro MUI_LANGDLL_DISPLAY
-  !insertmacro MULTIUSER_INIT
-  Call DetectExisting
-  ; Тихая установка всегда обновляет существующую копию, не показывая вопрос.
-  IfSilent no_existing
-  StrCmp $ExistingUninstall "" no_existing
-
-  ; Общую установку без прав администратора удалить нельзя.
-  StrCmp $ExistingMode "AllUsers" 0 ask
-  ${If} $MultiUser.Privileges != "Admin"
-  ${AndIf} $MultiUser.Privileges != "Power"
-    MessageBox MB_OK|MB_ICONSTOP "$(NeedAdmin)"
+Function SkipIfElevated
+  ${If} $Elevated == 1
     Abort
   ${EndIf}
+FunctionEnd
 
-  ask:
-  MessageBox MB_YESNOCANCEL|MB_ICONQUESTION "$(AlreadyInstalled)" IDYES reinstall IDNO uninstall
-  Quit
+Function .onInit
+  SetRegView 64
+  Call DetectElevated
 
-  uninstall:
-    ExecWait '$ExistingUninstall'
+  StrCpy $InstallMode "CurrentUser"
+  StrCpy $Elevated 0
+  StrCpy $StartMenuChk 1
+  StrCpy $DesktopChk 0
+
+  ; Перезапуск с правами администратора: язык, папка и ярлыки приходят
+  ; из командной строки, мастер сразу переходит к установке.
+  ${GetOptions} $CMDLINE "/elevated" $0
+  ${IfNot} ${Errors}
+    StrCpy $Elevated 1
+  ${EndIf}
+  ${GetOptions} $CMDLINE "/allusers" $0
+  ${IfNot} ${Errors}
+    StrCpy $InstallMode "AllUsers"
+  ${EndIf}
+  ${GetOptions} $CMDLINE "/nostartmenu" $0
+  ${IfNot} ${Errors}
+    StrCpy $StartMenuChk 0
+  ${EndIf}
+  ${GetOptions} $CMDLINE "/nodesktop" $0
+  ${IfNot} ${Errors}
+    StrCpy $DesktopChk 0
+  ${EndIf}
+  ${GetOptions} $CMDLINE "/desktop" $0
+  ${IfNot} ${Errors}
+    StrCpy $DesktopChk 1
+  ${EndIf}
+
+  ${If} $Elevated == 1
+    ${GetOptions} $CMDLINE "/LANG=" $0
+    ${IfNot} ${Errors}
+      StrCpy $LANGUAGE $0
+    ${EndIf}
+    ${If} $IsAdmin != 1
+      MessageBox MB_OK|MB_ICONSTOP "$(NeedAdminInstall)"
+      Quit
+    ${EndIf}
+  ${Else}
+    !insertmacro MUI_LANGDLL_DISPLAY
+  ${EndIf}
+
+  ${If} $Elevated != 1
+    Call DetectExisting
+    ; Тихая установка всегда обновляет существующую копию, не показывая вопрос.
+    IfSilent 0 ask_existing
+      ${If} $ExistingMode == "AllUsers"
+        StrCpy $InstallMode "AllUsers"
+        StrCpy $INSTDIR $ExistingDir
+      ${EndIf}
+      Goto no_existing
+    ask_existing:
+    StrCmp $ExistingUninstall "" no_existing
+
+    ; Существующая установка задаёт режим и папку по умолчанию.
+    StrCmp $ExistingMode "AllUsers" 0 ask
+    StrCpy $InstallMode "AllUsers"
+    StrCpy $INSTDIR $ExistingDir
+
+    ask:
+    MessageBox MB_YESNOCANCEL|MB_ICONQUESTION "$(AlreadyInstalled)" IDYES reinstall IDNO uninstall
     Quit
 
-  reinstall:
-  no_existing:
+    uninstall:
+      ExecWait '$ExistingUninstall'
+      Quit
+
+    reinstall:
+    no_existing:
+
+    ; Каталог по умолчанию: Program Files для «всех», профиль — для одного.
+    ; Если /D= уже задал другую папку, не перезаписываем её.
+    ${If} $INSTDIR == "$PROFILE\arbuz-launcher"
+      ${If} $InstallMode == "AllUsers"
+        ReadRegStr $0 HKLM "${APP_KEY}" "InstallDir"
+        ${If} $0 == ""
+          StrCpy $INSTDIR "$PROGRAMFILES64\Arbuz Launcher"
+        ${Else}
+          StrCpy $INSTDIR $0
+        ${EndIf}
+      ${Else}
+        ReadRegStr $0 HKCU "${APP_KEY}" "InstallDir"
+        ${If} $0 == ""
+          StrCpy $INSTDIR "$PROFILE\arbuz-launcher"
+        ${Else}
+          StrCpy $INSTDIR $0
+        ${EndIf}
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
 FunctionEnd
 
 Function un.onInit
   SetRegView 64
+  Call un.DetectElevated
   !insertmacro MUI_UNGETLANGUAGE
-  !insertmacro MULTIUSER_UNINIT
-  Call un.SetUninstallDir
+
+  ReadRegStr $0 HKLM "${UNINST_KEY}" "InstallMode"
+  ${If} $0 == "AllUsers"
+    StrCpy $InstallMode "AllUsers"
+    ReadRegStr $INSTDIR HKLM "${APP_KEY}" "InstallDir"
+  ${Else}
+    ReadRegStr $0 HKCU "${UNINST_KEY}" "InstallMode"
+    ${If} $0 == "AllUsers"
+      StrCpy $InstallMode "AllUsers"
+      ReadRegStr $INSTDIR HKCU "${APP_KEY}" "InstallDir"
+    ${Else}
+      StrCpy $InstallMode "CurrentUser"
+      ReadRegStr $INSTDIR HKCU "${APP_KEY}" "InstallDir"
+    ${EndIf}
+  ${EndIf}
+
+  ${If} $InstallMode == "AllUsers"
+    ${If} $IsAdmin != 1
+      ClearErrors
+      ExecShell "runas" "$INSTDIR\uninstall.exe" "/elevated"
+      ${If} ${Errors}
+        MessageBox MB_OK|MB_ICONSTOP "$(NeedAdmin)"
+      ${EndIf}
+      Quit
+    ${EndIf}
+    SetShellVarContext all
+  ${Else}
+    SetShellVarContext current
+  ${EndIf}
+FunctionEnd
+
+Function ShortcutsPageCreate
+  ${If} $Elevated == 1
+    Abort
+  ${EndIf}
+  !insertmacro MUI_HEADER_TEXT "$(ShortcutsTitle)" "$(ShortcutsSubtitle)"
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+
+  ${NSD_CreateCheckbox} 0 0 100% 12u "$(StartMenuShortcut)"
+  Pop $SmCheckbox
+  ${If} $StartMenuChk == 1
+    ${NSD_SetState} $SmCheckbox ${BST_CHECKED}
+  ${EndIf}
+
+  ${NSD_CreateCheckbox} 0 20u 100% 12u "$(Desktop)"
+  Pop $DtCheckbox
+  ${If} $DesktopChk == 1
+    ${NSD_SetState} $DtCheckbox ${BST_CHECKED}
+  ${EndIf}
+
+  nsDialogs::Show
+FunctionEnd
+
+Function ShortcutsPageLeave
+  ${NSD_GetState} $SmCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $StartMenuChk 1
+  ${Else}
+    StrCpy $StartMenuChk 0
+  ${EndIf}
+  ${NSD_GetState} $DtCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $DesktopChk 1
+  ${Else}
+    StrCpy $DesktopChk 0
+  ${EndIf}
+FunctionEnd
+
+Function ModePageCreate
+  ${If} $Elevated == 1
+    Abort
+  ${EndIf}
+  !insertmacro MUI_HEADER_TEXT "$(MULTIUSER_TEXT_INSTALLMODE_TITLE)" "$(MULTIUSER_TEXT_INSTALLMODE_SUBTITLE)"
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+
+  ${NSD_CreateLabel} 0 0 100% 40u "$(MULTIUSER_INNERTEXT_INSTALLMODE_TOP)"
+  Pop $0
+  ${NSD_CreateRadioButton} 15u 50u -15u 12u "$(MULTIUSER_INNERTEXT_INSTALLMODE_ALLUSERS)"
+  Pop $ModeRadioAll
+  ${NSD_CreateRadioButton} 15u 72u -15u 12u "$(MULTIUSER_INNERTEXT_INSTALLMODE_CURRENTUSER)"
+  Pop $ModeRadioCur
+  ${If} $InstallMode == "AllUsers"
+    ${NSD_SetState} $ModeRadioAll ${BST_CHECKED}
+  ${Else}
+    ${NSD_SetState} $ModeRadioCur ${BST_CHECKED}
+  ${EndIf}
+
+  nsDialogs::Show
+FunctionEnd
+
+Function ModePageLeave
+  ${NSD_GetState} $ModeRadioAll $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $InstallMode "AllUsers"
+    ; Папку не меняли — для общей установки берём Program Files.
+    ${If} $INSTDIR == "$PROFILE\arbuz-launcher"
+      StrCpy $INSTDIR "$PROGRAMFILES64\Arbuz Launcher"
+    ${EndIf}
+    ${If} $IsAdmin != 1
+      StrCpy $1 ""
+      ${If} $StartMenuChk != 1
+        StrCpy $1 "$1 /nostartmenu"
+      ${EndIf}
+      ${If} $DesktopChk == 1
+        StrCpy $1 "$1 /desktop"
+      ${Else}
+        StrCpy $1 "$1 /nodesktop"
+      ${EndIf}
+      ClearErrors
+      ExecShell "runas" "$EXEPATH" "/allusers /elevated /LANG=$LANGUAGE$1 /D=$INSTDIR"
+      ${If} ${Errors}
+        MessageBox MB_OK|MB_ICONSTOP "$(NeedAdminInstall)"
+        Abort
+      ${EndIf}
+      Quit
+    ${EndIf}
+  ${Else}
+    StrCpy $InstallMode "CurrentUser"
+  ${EndIf}
+FunctionEnd
+
+Function RunLauncher
+  ${If} $Elevated == 1
+    ; Из повышенного процесса запускаем через Explorer, чтобы лаунчер
+    ; стартовал от обычного пользователя, а не от администратора.
+    ExecShell "" "explorer.exe" '"$INSTDIR\${APP_EXE}"'
+  ${Else}
+    ExecShell "open" "$INSTDIR\${APP_EXE}"
+  ${EndIf}
 FunctionEnd
 
 Section "Install"
+  ${If} $InstallMode == "AllUsers"
+  ${AndIf} $IsAdmin != 1
+    MessageBox MB_ICONSTOP "$(NeedAdminInstall)"
+    Abort
+  ${EndIf}
+
   SetShellVarContext current
-  ${If} $MultiUser.InstallMode == "AllUsers"
+  ${If} $InstallMode == "AllUsers"
     SetShellVarContext all
   ${EndIf}
 
@@ -258,16 +474,22 @@ Section "Install"
   File "/oname=${APP_EXE}" "${ROOT}\src-tauri\target\release\${APP_EXE}"
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
-  CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-  CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
+  ${If} $StartMenuChk == 1
+    CreateDirectory "$SMPROGRAMS\${APP_NAME}"
+    CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
+  ${EndIf}
+  ${If} $DesktopChk == 1
+    CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
+  ${EndIf}
 
   WriteRegStr SHCTX "${APP_KEY}" "InstallDir" "$INSTDIR"
-  WriteRegStr SHCTX "${APP_KEY}" "InstallMode" "$MultiUser.InstallMode"
+  WriteRegStr SHCTX "${APP_KEY}" "InstallMode" "$InstallMode"
   WriteRegStr SHCTX "${UNINST_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr SHCTX "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\${APP_EXE}"
   WriteRegStr SHCTX "${UNINST_KEY}" "DisplayVersion" "${APP_VERSION}"
   WriteRegStr SHCTX "${UNINST_KEY}" "Publisher" "${APP_PUBLISHER}"
   WriteRegStr SHCTX "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
+  WriteRegStr SHCTX "${UNINST_KEY}" "InstallMode" "$InstallMode"
   WriteRegStr SHCTX "${UNINST_KEY}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
   WriteRegStr SHCTX "${UNINST_KEY}" "QuietUninstallString" "$\"$INSTDIR\uninstall.exe$\" /S"
   WriteRegDWORD SHCTX "${UNINST_KEY}" "NoModify" 1
@@ -277,16 +499,7 @@ Section "Install"
   WriteRegDWORD SHCTX "${UNINST_KEY}" "EstimatedSize" "$0"
 SectionEnd
 
-Function CreateDesktopShortcut
-  CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
-FunctionEnd
-
 Section "Uninstall"
-  SetShellVarContext current
-  ${If} $MultiUser.InstallMode == "AllUsers"
-    SetShellVarContext all
-  ${EndIf}
-
   Delete "$INSTDIR\${APP_EXE}"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
