@@ -7,7 +7,7 @@ import type { CustomTheme } from './theme';
 export const dataRoot = (): Promise<string> => invoke<string>('data_dir');
 
 export type Loader = 'vanilla' | 'fabric' | 'forge' | 'neoforge' | 'quilt';
-export type AccountKind = 'microsoft' | 'elyby' | 'littleskin' | 'offline';
+export type AccountKind = 'microsoft' | 'elyby' | 'littleskin' | 'offline' | 'plugin';
 
 export interface Instance {
   id: string;
@@ -142,6 +142,7 @@ export interface Config {
   hideEmpty: boolean;
   modIsolationEnabled: boolean;
   modIsolationLevel: string;
+  modIsolationClipboard: boolean;
   /** Сканер модов перед запуском игры. */
   scannerEnabled: boolean;
   /** Режим сканера: 'normal' | 'strict' | 'paranoid'. */
@@ -161,6 +162,26 @@ export interface Config {
   aiPackSource: string;
   /** Модель ИИ-сборки: пусто — первая доступная бесплатная. */
   aiPackModel: string;
+  /** Провайдер ИИ: opencode | openai | openrouter | groq | deepseek | gemini | anthropic | custom. */
+  aiProvider: string;
+  /** API-ключ провайдера. В config.json хранится как есть, в webview приходит маской. */
+  aiApiKey: string;
+  /** Свой base URL для провайдера `custom`. */
+  aiBaseUrl: string;
+  /** Модель для чата и диагностики: пусто — дефолт провайдера. */
+  aiModel: string;
+  /** Экспериментально: Python-плагины (`.aplug`) и архивы `.arbz`. */
+  pluginsEnabled: boolean;
+  /** Настройки плагинов: id → произвольный JSON. */
+  pluginSettings: Record<string, unknown>;
+  /** Экспериментально: движок внешних тем. */
+  themeEngine: boolean;
+  /** Активная тема движка. */
+  themePack: string;
+  /** Динамический визуал Minecraft (панорама и текстуры из jar). */
+  mcVisual: boolean;
+  /** Автопроверка Fractureiser при запуске, установке модов и старте игры. */
+  fractureiserGuard: boolean;
   anim: AnimConfig;
   custom: CustomTheme;
   moves: Record<string, [number, number]>;
@@ -292,6 +313,41 @@ export interface CrashDiagnosis {
   vars: Record<string, string>;
 }
 
+/** Готовое исправление из анализа лога. */
+export interface LogFix {
+  /** increase_ram | reset_java | reinstall_loader | open_instance | ... */
+  kind: string;
+  label: string;
+  value: string | null;
+}
+
+/** Найденная в логе проблема. */
+export interface LogFinding {
+  id: string;
+  severity: 'error' | 'warn' | 'info' | string;
+  title: string;
+  detail: string;
+  fixes: LogFix[];
+}
+
+/** Запись журнала запусков профиля. */
+export interface RunRecord {
+  instanceId: string;
+  started: number;
+  ended: number;
+  exitCode: number | null;
+  log: string | null;
+  crash: string | null;
+}
+
+/** Результат анализа свежего лога или краш-репорта. */
+export interface LogAnalysis {
+  found: boolean;
+  file: string | null;
+  findings: LogFinding[];
+  journal: RunRecord[];
+}
+
 /** Ответ ИИ-разбора падения (free-модель OpenCode Zen). */
 export interface AiDiagnosis {
   model: string;
@@ -409,11 +465,73 @@ export interface ConfigDoc {
   hasBackup: boolean;
 }
 
+/** Сохранённая версия конфига. */
+export interface ConfigVersion {
+  stamp: number;
+  size: number;
+}
+
+/** Результат проверки синтаксиса конфига. */
+export interface ConfigCheck {
+  ok: boolean;
+  message: string;
+}
+
 /** Замечание проверки сборки. */
 export interface PackIssue {
   severity: 'error' | 'warn' | 'info' | string;
   title: string;
   detail: string;
+}
+
+/** Готовое действие анализатора конфликтов. */
+export interface ConflictAction {
+  id: string;
+  label: string;
+  /** disable | enable | remove | open_catalog */
+  kind: string;
+  files: string[];
+  modId: string | null;
+  query: string | null;
+}
+
+/** Найденный конфликт модов. */
+export interface ModConflict {
+  id: string;
+  /** duplicate | loader | missing_dep | disabled_dep | known */
+  kind: string;
+  severity: 'error' | 'warn' | 'info' | string;
+  title: string;
+  detail: string;
+  actions: ConflictAction[];
+}
+
+/** Мод в сохранённом списке. */
+export interface SavedMod {
+  source: string;
+  projectId: string;
+  kind: string;
+  name: string;
+  version: string;
+}
+
+/** Сохранённый список модов профиля. */
+export interface SavedModList {
+  id: string;
+  name: string;
+  created: number;
+  mcVersion: string;
+  loader: string;
+  mods: SavedMod[];
+}
+
+/** Результат сборки серверного пака. */
+export interface ServerPackResult {
+  path: string;
+  files: number;
+  bytes: number;
+  loader: string;
+  mcVersion: string;
 }
 
 /** Результат экспорта сборки. */
@@ -428,6 +546,13 @@ export interface UpdateInfo {
   file: string;
   name: string;
   newVersion: string;
+}
+
+/** План исправления зависимостей от ИИ/плагинов. */
+export interface DependencyPlan {
+  updates: UpdateInfo[];
+  issues: PackIssue[];
+  note: string;
 }
 /** Новость Minecraft с «Главной» (ТЗ §12-b). */
 export interface NewsItem {
@@ -573,6 +698,168 @@ export interface DeviceCode {
   interval: number;
 }
 
+/** Установленный Python-плагин (`.aplug`). */
+export interface PluginInfo {
+  id: string;
+  name: string;
+  version: string;
+  author: string;
+  description: string;
+  api: number;
+  hooks: string[];
+  permissions: string[];
+  enabled: boolean;
+  error: string | null;
+  path: string;
+  icon: string | null;
+  homepage: string | null;
+}
+
+/** Панель, зарегистрированная плагином (например, игра 2048). */
+export interface PluginPanel {
+  id: string;
+  title: string;
+  icon?: string;
+  description?: string;
+  height?: number;
+  plugin: string;
+}
+
+/** Пункт сайдбара, зарегистрированный плагином. */
+export interface PluginSidebarItem {
+  id: string;
+  title: string;
+  icon?: string;
+  panel?: string;
+  order?: number;
+  badge?: string;
+  description?: string;
+  plugin: string;
+}
+
+/** Строка лога плагина. */
+export interface PluginLogEntry {
+  plugin: string;
+  level: string;
+  message: string;
+  ts: number;
+}
+
+/** Пункт, который плагин добавил в универсальный слот интерфейса. */
+export interface PluginSlotItem {
+  id?: string;
+  label: string;
+  icon?: string;
+  command?: string;
+  args?: unknown;
+  panel?: string;
+  plugin?: string;
+}
+
+/** Результат хука слота: пункты, HTML и патч элемента. */
+export interface PluginSlotResult {
+  items: PluginSlotItem[];
+  html: string;
+  patch: Record<string, unknown>;
+}
+
+/** Патч элемента интерфейса из хука `ui.element`. */
+export interface PluginElementPatch {
+  hidden?: boolean;
+  text?: string;
+  html?: string;
+  className?: string;
+  style?: Record<string, string>;
+  before?: string;
+  after?: string;
+  [key: string]: unknown;
+}
+
+/** Предупреждение о плагине до установки. */
+export interface PluginPreviewWarning {
+  level: string;
+  code: string;
+  message: string;
+}
+
+/** Файл внутри плагина для предпросмотра. */
+export interface PluginPreviewFile {
+  name: string;
+  size: number;
+  binary: boolean;
+  code: string | null;
+}
+
+/** Полное превью `.aplug`/`.arbz` до установки. */
+export interface PluginPreview {
+  path: string;
+  fileName: string;
+  size: number;
+  sha256: string;
+  kind: string;
+  id: string;
+  name: string;
+  version: string;
+  author: string;
+  description: string;
+  api: number;
+  permissions: string[];
+  hooks: string[];
+  files: PluginPreviewFile[];
+  warnings: PluginPreviewWarning[];
+  network: boolean;
+  obfuscated: boolean;
+  dangerous: boolean;
+  risk: string;
+}
+
+/** Содержимое панели плагина: HTML/CSS/JS для изолированного iframe. */
+export interface PluginPanelContent {
+  html?: string;
+  css?: string;
+  js?: string;
+  height?: number;
+  title?: string;
+  error?: string;
+  [key: string]: unknown;
+}
+
+/** Тема движка тем. */
+export interface ThemePack {
+  id: string;
+  name: string;
+  author: string;
+  description: string;
+  dark: boolean;
+  colors: Record<string, string>;
+  radius: number;
+  font: string;
+  css: string;
+  layout: string;
+  soft: boolean;
+  plugin: string | null;
+}
+
+export interface ThemeLoad {
+  theme: ThemePack;
+  css: string;
+}
+
+/** Визуал Minecraft из jar версии. */
+export interface McVisual {
+  version: string;
+  title: string;
+  panorama: string[];
+  faces?: number;
+  button: Record<string, string>;
+  accent: string;
+  css?: string;
+  theme?: string;
+  layout?: string;
+  error?: string;
+  [key: string]: unknown;
+}
+
 export const api = {
   getConfig: () => invoke<Config>('get_config'),
   setConfig: (cfg: Config) => invoke<void>('set_config', { cfg }),
@@ -644,6 +931,7 @@ export const api = {
   installCatalogItem: (instanceId: string, source: string, projectId: string, kind: string, world: string | null) =>
     invoke<void>('install_catalog_item', { instanceId, source, projectId, kind, world }),
   checkUpdates: (id: string) => invoke<UpdateInfo[]>('check_updates', { id }),
+  aiDependencyPlan: (id: string) => invoke<DependencyPlan>('ai_dependency_plan', { id }),
   applyUpdates: (id: string, files: string[]) => invoke<number>('apply_updates', { id, files }),
   packUpdate: (id: string) => invoke<PackUpdate | null>('pack_update', { id }),
   applyPackUpdate: (id: string, versionId: string) =>
@@ -671,7 +959,17 @@ export const api = {
     model: string | null,
   ) => invoke<PackPlan>('ai_pack_plan', { prompt, lang, mcVersion, loader, limit, source, model }),
   aiModels: () => invoke<string[]>('ai_models'),
+  aiTest: () => invoke<string>('ai_test'),
   openCrashReports: (id: string) => invoke<void>('open_crash_reports', { id }),
+
+  analyzeLogs: (id: string) => invoke<LogAnalysis>('analyze_logs', { id }),
+  logJournal: (id: string) => invoke<RunRecord[]>('log_journal', { id }),
+  logSupportReport: (id: string) => invoke<string>('log_support_report', { id }),
+  logSaveReport: (id: string, dest: string) => invoke<void>('log_save_report', { id, dest }),
+  logRules: () => invoke<unknown[]>('log_rules'),
+  logUpdateRules: (url: string) => invoke<number>('log_update_rules', { url }),
+  logApplyFix: (id: string, kind: string, value?: string | null) =>
+    invoke<void>('log_apply_fix', { id, kind, value: value ?? null }),
 
   packInfo: (id: string) => invoke<PackInfo>('pack_info', { id }),
   savePackInfo: (id: string, manifest: PackManifest) =>
@@ -683,7 +981,30 @@ export const api = {
     invoke<ConfigDoc>('save_pack_config', { id, path, content }),
   restorePackConfig: (id: string, path: string) =>
     invoke<ConfigDoc>('restore_pack_config', { id, path }),
+  packConfigHistory: (id: string, path: string) =>
+    invoke<ConfigVersion[]>('pack_config_history', { id, path }),
+  packConfigVersion: (id: string, path: string, stamp: number) =>
+    invoke<string>('pack_config_version', { id, path, stamp }),
+  packConfigDiff: (id: string, path: string, stamp: number) =>
+    invoke<string>('pack_config_diff', { id, path, stamp }),
+  validatePackConfig: (path: string, content: string) =>
+    invoke<ConfigCheck>('validate_pack_config', { path, content }),
   validatePack: (id: string) => invoke<PackIssue[]>('validate_pack', { id }),
+  analyzeConflicts: (id: string) => invoke<ModConflict[]>('analyze_conflicts', { id }),
+  modlistsList: () => invoke<SavedModList[]>('modlists_list'),
+  modlistSave: (id: string, name: string) =>
+    invoke<SavedModList>('modlist_save', { id, name }),
+  modlistDelete: (id: string) => invoke<void>('modlist_delete', { id }),
+  modlistInstall: (listId: string, instanceId: string) =>
+    invoke<number>('modlist_install', { listId, instanceId }),
+  buildServerPack: (args: {
+    instanceId: string | null;
+    kind: string;
+    mcVersion: string;
+    loaderVersion: string | null;
+    dest: string;
+    ramMb: number;
+  }) => invoke<ServerPackResult>('build_server_pack', args),
   exportPack: (id: string, dest: string, format: string) =>
     invoke<PackExport>('export_pack', { id, dest, format }),
   openPackConfigs: (id: string) => invoke<void>('open_pack_configs', { id }),
@@ -744,4 +1065,60 @@ export const api = {
     invoke<void>('benchmark_start', { id, world }),
   benchmarkCancel: () => invoke<void>('benchmark_cancel'),
   benchmarkList: (id: string) => invoke<BenchRun[]>('benchmark_list', { id }),
+
+  // Плагины
+  pluginsList: () => invoke<PluginInfo[]>('plugins_list'),
+  pluginInspect: (path: string) => invoke<PluginPreview>('plugin_inspect', { path }),
+  pluginInstall: (path: string) => invoke<PluginInfo[]>('plugin_install', { path }),
+  pluginUninstall: (id: string) => invoke<void>('plugin_uninstall', { id }),
+  pluginSetEnabled: (id: string, enabled: boolean) =>
+    invoke<void>('plugin_set_enabled', { id, enabled }),
+  pluginReload: () => invoke<void>('plugin_reload'),
+  pluginOpenFolder: () => invoke<void>('plugin_open_folder'),
+  pluginOpenLibs: () => invoke<void>('plugin_open_libs'),
+  pluginPanels: () => invoke<PluginPanel[]>('plugin_panels'),
+  pluginSidebar: () => invoke<PluginSidebarItem[]>('plugin_sidebar'),
+  pluginLogs: () => invoke<PluginLogEntry[]>('plugin_logs'),
+  pluginLogsClear: () => invoke<void>('plugin_logs_clear'),
+  pluginUiSlot: (slot: string, props?: unknown) =>
+    invoke<PluginSlotResult>('plugin_ui_slot', { slot, props: props ?? null }),
+  pluginUiElement: (id: string, props?: unknown) =>
+    invoke<PluginElementPatch>('plugin_ui_element', { id, props: props ?? null }),
+  pluginStorageGet: (plugin: string, key: string) =>
+    invoke<unknown>('plugin_storage_get', { plugin, key }),
+  pluginStorageSet: (plugin: string, key: string, value: unknown) =>
+    invoke<void>('plugin_storage_set', { plugin, key, value }),
+  pluginStorageAll: (plugin: string) =>
+    invoke<Record<string, unknown>>('plugin_storage_all', { plugin }),
+  pluginConfigGet: (plugin: string, key: string) =>
+    invoke<unknown>('plugin_config_get', { plugin, key }),
+  pluginConfigSet: (plugin: string, key: string, value: unknown) =>
+    invoke<void>('plugin_config_set', { plugin, key, value }),
+  pluginPanelEvent: (plugin: string, event: string, data?: unknown) =>
+    invoke<unknown>('plugin_panel_event', { plugin, event, data: data ?? null }),
+  pluginSources: () => invoke<Record<string, unknown>[]>('plugin_sources'),
+  pluginCommands: () => invoke<Record<string, unknown>[]>('plugin_commands'),
+  pluginPanelRender: (plugin: string, panel: string, args?: unknown) =>
+    invoke<PluginPanelContent>('plugin_panel_render', { plugin, panel, args: args ?? null }),
+  pluginRunCommand: (plugin: string, command: string, args?: unknown) =>
+    invoke<unknown>('plugin_run_command', { plugin, command, args: args ?? null }),
+  pluginCatalogSearch: (source: string, args: unknown) =>
+    invoke<Record<string, unknown>[]>('plugin_catalog_search', { source, args }),
+  pluginAuthProviders: () => invoke<Record<string, unknown>[]>('plugin_auth_providers'),
+  pluginAuthLogin: (provider: string, credentials: Record<string, string>) =>
+    invoke<Account>('plugin_auth_login', { provider, credentials }),
+  pluginVisual: (instanceId: string) =>
+    invoke<McVisual>('plugin_visual', { instanceId }),
+
+  // Движок тем
+  themesList: () => invoke<ThemePack[]>('themes_list'),
+  themeLoad: (id: string) => invoke<ThemeLoad>('theme_load', { id }),
+  themeInstall: (path: string) => invoke<string>('theme_install', { path }),
+  themeRemove: (id: string) => invoke<void>('theme_remove', { id }),
+  themeOpenFolder: () => invoke<void>('theme_open_folder'),
+  themeExport: (id: string) => invoke<{ theme: ThemePack; css: string }>('theme_export', { id }),
+
+  // Самообновление
+  launcherUpdateDownload: () => invoke<string>('launcher_update_download'),
+  launcherUpdateInstall: (path: string) => invoke<void>('launcher_update_install', { path }),
 };

@@ -158,6 +158,9 @@ jobs:
             throw 'makensis не найден'
           }
 
+      - name: Python runtime для плагинов
+        run: ./scripts/fetch-python.ps1
+
       - name: Сборка лаунчера
         run: pnpm tauri build --no-bundle
 

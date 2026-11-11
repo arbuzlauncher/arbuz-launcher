@@ -21,6 +21,7 @@ export function AiPackModal({ open, onClose }: { open: boolean; onClose: () => v
   const cfgLimit = useStore((s) => s.config.aiPackLimit);
   const cfgSource = useStore((s) => s.config.aiPackSource);
   const cfgModel = useStore((s) => s.config.aiPackModel);
+  const cfgProvider = useStore((s) => s.config.aiProvider);
 
   const [phase, setPhase] = useState<'form' | 'plan' | 'build'>('form');
   const [prompt, setPrompt] = useState('');
@@ -62,7 +63,7 @@ export function AiPackModal({ open, onClose }: { open: boolean; onClose: () => v
       .aiModels()
       .then(setModels)
       .catch(() => {});
-  }, [open, cfgLimit, cfgSource, cfgModel]);
+  }, [open, cfgLimit, cfgSource, cfgModel, cfgProvider]);
 
   if (!open || !enabled) return null;
 
@@ -272,7 +273,9 @@ export function AiPackModal({ open, onClose }: { open: boolean; onClose: () => v
                       useStore.getState().setConfig({ ...cfg, aiPackModel: v });
                     }}
                   >
-                    <option value="">{t('Первая доступная')}</option>
+                    <option value="">
+                      {cfgProvider === 'opencode' ? t('Первая доступная') : t('По умолчанию')}
+                    </option>
                     {models.map((m) => (
                       <option key={m} value={m}>
                         {m}

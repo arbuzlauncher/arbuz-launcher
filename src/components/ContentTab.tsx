@@ -6,8 +6,10 @@ import { api, type ContentItem, type Instance } from '../lib/api';
 import { fmtBytes } from '../lib/format';
 import { useT } from '../lib/i18n';
 import { LOADER_LABEL } from '../lib/labels';
-import { curAccount, iconUrl, loadProfileContent, useArtTheme, useStore } from '../store';
+import { curAccount, askConfirm, iconUrl, loadProfileContent, useArtTheme, useStore } from '../store';
 import { Avatar, Toggle } from './Controls';
+import { ConflictsPanel } from './ConflictsPanel';
+import { ModListsPanel } from './ModListsPanel';
 
 const KIND_LABEL: Record<string, string> = {
   mod: 'Мод',
@@ -66,6 +68,8 @@ export function ContentTab({
   const acc = curAccount(useStore.getState());
   const t = useT();
   const [busy, setBusy] = useState(false);
+  const [showConflicts, setShowConflicts] = useState(false);
+  const [showLists, setShowLists] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -93,8 +97,55 @@ export function ContentTab({
   const toBrowse = () =>
     useStore.getState().set({ view: 'browse', tgt: inst.id, bt: flt === 'all' ? 'mod' : flt });
 
+  const fixDeps = async () => {
+    setBusy(true);
+    try {
+      const plan = await api.aiDependencyPlan(inst.id);
+      const lines = [plan.note];
+      if (plan.updates.length) {
+        lines.push(
+          ...plan.updates
+            .slice(0, 10)
+            .map((u) => `${u.name}: ${u.newVersion}`),
+        );
+        if (plan.updates.length > 10) lines.push(`… +${plan.updates.length - 10}`);
+      }
+      if (plan.issues.length) {
+        lines.push(
+          ...plan.issues
+            .slice(0, 6)
+            .map((i) => `${i.severity === 'error' ? '✕' : '!'} ${i.title}`),
+        );
+      }
+      const ok = await askConfirm({
+        title: t('ИИ: исправить зависимости'),
+        text: lines.join('\n'),
+        yes: plan.updates.length ? t('Обновить всё совместимое') : t('Ок'),
+        no: t('Отмена'),
+      });
+      if (ok && plan.updates.length) {
+        const n = await api.applyUpdates(
+          inst.id,
+          plan.updates.map((u) => u.file),
+        );
+        await reload();
+        useStore.getState().toastMsg(t('Обновлено файлов: {n}', { n }));
+      }
+    } catch (e) {
+      useStore.getState().toastMsg(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const q = cq.toLowerCase();
-  const shown = items.filter((m) => (flt === 'all' || m.kind === flt) && m.name.toLowerCase().includes(q));
+  const shown = items.filter(
+    (m) =>
+      (flt === 'all' || m.kind === flt) &&
+      (m.name.toLowerCase().includes(q) ||
+        m.file.toLowerCase().includes(q) ||
+        m.version.toLowerCase().includes(q)),
+  );
 
   return (
     <>
@@ -155,10 +206,27 @@ export function ContentTab({
             </button>
           ))}
         </div>
+        <button className="btn sm" disabled={busy} onClick={() => void fixDeps()}>
+          {t('ИИ: зависимости')}
+        </button>
+        <button
+          className={'btn sm' + (showConflicts ? ' pr' : '')}
+          onClick={() => setShowConflicts((v) => !v)}
+        >
+          {t('Конфликты')}
+        </button>
+        <button
+          className={'btn sm' + (showLists ? ' pr' : '')}
+          onClick={() => setShowLists((v) => !v)}
+        >
+          {t('Списки')}
+        </button>
         <button className="btn pr" onClick={toBrowse}>
           {t('Добавить')}
         </button>
       </div>
+      {showConflicts && <ConflictsPanel inst={inst} onApplied={reload} />}
+      {showLists && <ModListsPanel inst={inst} onInstalled={reload} />}
       <div className="panel">
         {shown.length > 0 ? (
           <table>

@@ -18,6 +18,7 @@ import { VERSION_GROUPS } from '../lib/versions';
 import { Avatar, IUp, RamSlider, Seg, Toggle } from './Controls';
 import { ContentTab } from './ContentTab';
 import { ConsoleTab } from './ConsoleTab';
+import { LogsTab } from './LogsTab';
 import { PackTab } from './PackTab';
 import { ScannerTab } from './ScannerTab';
 import { ScreenshotsTab } from './ScreenshotsTab';
@@ -37,6 +38,7 @@ const SECS: [Sec, string][] = [
   ['m', 'Миры'],
   ['srv', 'Серверы'],
   ['v', 'Консоль'],
+  ['lg', 'Логи'],
   ['s', 'Скриншоты'],
   ['sc', 'Безопасность'],
   ['sy', 'Синхронизация'],
@@ -495,6 +497,8 @@ export function InstanceSettings({ inst }: { inst: Instance }) {
     body = <ServersTab key={inst.id} inst={inst} />;
   } else if (s.sec === 'v') {
     body = <ConsoleTab inst={inst} />;
+  } else if (s.sec === 'lg') {
+    body = <LogsTab inst={inst} />;
   } else if (s.sec === 'sc') {
     body = <ScannerTab inst={inst} />;
 

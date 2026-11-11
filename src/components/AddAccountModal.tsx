@@ -7,7 +7,16 @@ import { useT } from '../lib/i18n';
 import { useStore } from '../store';
 
 type Kind = 'ms' | 'ely' | 'off' | 'lsk';
-type ModalKind = Kind | 'pick';
+type ModalKind = Kind | 'pick' | 'plug';
+
+interface AuthProvider {
+  id: string;
+  name: string;
+  description?: string;
+  plugin: string;
+  hint?: string;
+  fields?: { key: string; label?: string; type?: string; placeholder?: string }[];
+}
 
 const KINDS: [Kind, string][] = [
   ['ms', 'Microsoft'],
@@ -68,6 +77,8 @@ export function AddAccountModal() {
   const [err, setErr] = useState('');
   const [step, setStep] = useState('');
   const [busy, setBusy] = useState(false);
+  const [providers, setProviders] = useState<AuthProvider[]>([]);
+  const [cred, setCred] = useState<Record<string, string>>({});
 
   // Автостарт делаем один раз за открытие модалки: если вход сорвался,
   // следующий код пользователь открывает сам, без лавины окон браузера.
@@ -76,6 +87,15 @@ export function AddAccountModal() {
   const liveRef = useRef(false);
 
   const kind: ModalKind | null = modal?.p ?? null;
+  const providerId = modal?.p === 'plug' ? modal.provider : '';
+  const provider = providers.find((p) => p.id === providerId);
+
+  useEffect(() => {
+    void api
+      .pluginAuthProviders()
+      .then((list) => setProviders(list as unknown as AuthProvider[]))
+      .catch(() => {});
+  }, []);
 
   /** Общий финал успешного входа: список аккаунтов, активный, закрытие. */
   const done = useCallback(async (id: string) => {
@@ -225,6 +245,19 @@ export function AddAccountModal() {
     }
   };
 
+  const addPlugin = async () => {
+    if (!provider) return;
+    setBusy(true);
+    try {
+      const acc = await api.pluginAuthLogin(provider.id, cred);
+      await done(acc.id);
+    } catch (e) {
+      useStore.getState().toastMsg(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const msReopen = async () => {
     if (!dc || busy) return;
     await openUrl(linkOf(dc)).catch((e) => setErr(String(e)));
@@ -250,6 +283,24 @@ export function AddAccountModal() {
               <span className="acc-tx">
                 <b>{t(label)}</b>
                 <span className="hint">{t(HINTS[k])}</span>
+              </span>
+              <span className="acc-go">→</span>
+            </button>
+          ))}
+          {providers.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className="acc-card"
+              onClick={() => {
+                setCred({});
+                useStore.getState().set({ modal: { p: 'plug', provider: p.id } });
+              }}
+            >
+              <span className="acc-ic off">🔌</span>
+              <span className="acc-tx">
+                <b>{p.name}</b>
+                <span className="hint">{p.description || t('Способ входа от плагина')}</span>
               </span>
               <span className="acc-go">→</span>
             </button>
@@ -330,6 +381,40 @@ export function AddAccountModal() {
         <button className="btn pr" disabled={busy} onClick={() => void addPass(kind)}>
           {t('Войти')}
         </button>
+      </>
+    );
+  } else if (kind === 'plug') {
+    const fields = provider?.fields?.length
+      ? provider.fields
+      : [
+          { key: 'login', label: t('Логин или e-mail'), type: 'text', placeholder: 'Steve' },
+          { key: 'password', label: t('Пароль'), type: 'password', placeholder: '••••••••' },
+        ];
+    form = (
+      <>
+        <h2>{provider?.name || t('Вход через плагин')}</h2>
+        <p className="hint" style={{ marginBottom: 14 }}>
+          {provider?.hint || provider?.description || t('Этот способ входа добавлен плагином.')}
+        </p>
+        {fields.map((f) => (
+          <div key={f.key}>
+            <label className="l">{f.label || f.key}</label>
+            <input
+              type={f.type || 'text'}
+              value={cred[f.key] ?? ''}
+              placeholder={f.placeholder}
+              onChange={(e) => setCred((c) => ({ ...c, [f.key]: e.target.value }))}
+            />
+          </div>
+        ))}
+        <button className="btn pr" disabled={busy || !provider} onClick={() => void addPlugin()}>
+          {busy ? t('Входим…') : t('Войти')}
+        </button>
+        {provider?.plugin && (
+          <p className="hint" style={{ marginTop: 10 }}>
+            {t('Провайдер плагина: {p}', { p: provider.plugin })}
+          </p>
+        )}
       </>
     );
   } else {

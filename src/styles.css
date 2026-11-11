@@ -43,14 +43,17 @@ body{margin:0;background:#000;overflow:hidden;font:13px/1.45 Inter,system-ui,san
 h2{font-size:15px;font-weight:600;margin:24px 0 10px}h2:first-child{margin-top:0}
 [data-v=b] h2{font-size:16px;font-weight:500}
 .hint{color:var(--onv);font-size:12px}
-.btn{display:inline-flex;align-items:center;gap:7px;border:0;background:var(--s3);color:var(--on);font-family:inherit;font-size:13px;font-weight:500;padding:8px 14px;border-radius:var(--rb);cursor:pointer;white-space:nowrap;transition:transform var(--d-press) var(--anim-ease),filter var(--d-press) var(--anim-ease),background-color var(--d-press) var(--anim-ease),color var(--d-press) var(--anim-ease)}
+.btn{display:inline-flex;align-items:center;gap:7px;border:0;appearance:none;-webkit-appearance:none;background:var(--s3);color:var(--on);font-family:inherit;font-size:13px;font-weight:500;padding:8px 14px;border-radius:var(--rb);cursor:pointer;white-space:nowrap;transition:transform var(--d-press) var(--anim-ease),filter var(--d-press) var(--anim-ease),background-color var(--d-press) var(--anim-ease),color var(--d-press) var(--anim-ease)}
 .btn:hover{filter:brightness(1.1)}.btn:active{transform:scale(var(--press-scale))}.btn.pr{background:var(--pri);color:var(--onpri);font-weight:600}.btn.sm{padding:5px 11px;font-size:12px}
+.btn:disabled{opacity:.55;cursor:default;filter:none;transform:none}
+button{font-family:inherit}
+input::placeholder,textarea::placeholder{color:var(--onv);opacity:.85}
 .btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 [data-v=b] .btn{height:40px;padding:0 24px;font-size:14px;background:var(--sec);color:var(--onsec)}
 [data-v=b] .btn.pr{background:var(--pri);color:var(--onpri)}[data-v=b] .btn.sm{height:32px;padding:0 16px;font-size:13px}
-input[type=text],input[type=password],input[type=number],select,textarea{background:var(--s2);color:var(--on);border:2px solid transparent;border-radius:var(--r);padding:8px 12px;font:inherit;width:100%;outline:0;user-select:text}
+input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=image]),select,textarea{background:var(--s2);color:var(--on);border:2px solid transparent;border-radius:var(--r);padding:8px 12px;font:inherit;width:100%;outline:0;user-select:text}
 input:focus,select:focus,textarea:focus{border-color:var(--pri)}
-[data-v=b] input[type=text],[data-v=b] input[type=password],[data-v=b] select,[data-v=b] textarea{background:transparent;border:1px solid var(--outl);border-radius:6px;padding:10px 14px}
+[data-v=b] input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset]):not([type=image]),[data-v=b] select,[data-v=b] textarea{background:transparent;border:1px solid var(--outl);border-radius:6px;padding:10px 14px}
 [data-v=b] input:focus,[data-v=b] select:focus,[data-v=b] textarea:focus{border:2px solid var(--pri);padding:9px 13px}
 select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--onv) 50%),linear-gradient(135deg,var(--onv) 50%,transparent 50%);background-position:calc(100% - 17px) 55%,calc(100% - 12px) 55%;background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
 textarea{min-height:64px;resize:none;font:12px ui-monospace,Consolas,monospace}

@@ -6,6 +6,7 @@
 use crate::error::Res;
 use crate::state::AppState;
 use serde::Serialize;
+use std::path::{Path, PathBuf};
 
 /// Репозиторий проекта.
 const REPO: &str = "arbuzlauncher/arbuz-launcher";
@@ -234,6 +235,177 @@ pub async fn check(state: &AppState) -> Res<Option<LauncherUpdate>> {
         }
     }
     Ok(None)
+}
+
+/// Скачивает обновление в `<data>/updates/<version>/` и отдаёт путь к файлу.
+/// Прогресс идёт событием `progress` с id `launcher-update`.
+pub async fn download(
+    state: &AppState,
+    app: &tauri::AppHandle,
+    upd: &LauncherUpdate,
+) -> Res<PathBuf> {
+    crate::http::validate_url(&upd.download)?;
+    let name = upd
+        .download
+        .split(['?', '#'])
+        .next()
+        .unwrap_or("")
+        .rsplit('/')
+        .next()
+        .filter(|s| !s.is_empty() && s.len() <= 160)
+        .unwrap_or("arbuz-update.exe")
+        .to_string();
+    let safe_version: String = upd
+        .version
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
+        .take(40)
+        .collect();
+    let dir = crate::paths::updates_dir().join(if safe_version.is_empty() {
+        "latest".to_string()
+    } else {
+        safe_version
+    });
+    tokio::fs::create_dir_all(&dir).await?;
+    let dest = dir.join(name);
+    // Размер заранее неизвестен: прогресс будет «дёргаться» по мере чтения.
+    let dl = crate::http::Dl {
+        url: upd.download.clone(),
+        path: dest.clone(),
+        sha1: None,
+        sha256: None,
+        size: 0,
+    };
+    crate::http::download_all(app, &state.http, "launcher-update", vec![dl], 0.0, 100.0).await?;
+    Ok(dest)
+}
+
+/// Запускает установку скачанного обновления и завершает лаунчер.
+/// На Windows создаётся cmd-скрипт, который ждёт выхода процесса, чтобы
+/// заменить запущенный exe или тихо прогнать установщик.
+pub fn install_and_restart(app: &tauri::AppHandle, update: &Path) -> Res<()> {
+    if !update.is_file() {
+        return crate::error::err("Файл обновления не найден");
+    }
+    let current = std::env::current_exe()?;
+    let dir = crate::paths::updates_dir();
+    std::fs::create_dir_all(&dir)?;
+    let name = update
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("update.exe")
+        .to_ascii_lowercase();
+
+    #[cfg(windows)]
+    {
+        let script = dir.join("apply-update.cmd");
+        let is_setup = name.contains("setup") || name.contains("installer");
+        let current_s = current.to_string_lossy().replace('%', "%%");
+        let update_s = update.to_string_lossy().replace('%', "%%");
+        let body = if is_setup {
+            format!(
+                "@echo off\r\n\
+                 chcp 65001 >nul\r\n\
+                 timeout /t 2 /nobreak >nul\r\n\
+                 :wait\r\n\
+                 tasklist /FI \"PID eq {pid}\" 2>nul | find \"{pid}\" >nul\r\n\
+                 if not errorlevel 1 (timeout /t 1 /nobreak >nul & goto wait)\r\n\
+                 start \"\" /wait \"{update}\" /S\r\n\
+                 start \"\" \"{current}\"\r\n\
+                 del \"%~f0\"\r\n",
+                pid = std::process::id(),
+                update = update_s,
+                current = current_s,
+            )
+        } else {
+            format!(
+                "@echo off\r\n\
+                 chcp 65001 >nul\r\n\
+                 timeout /t 2 /nobreak >nul\r\n\
+                 :wait\r\n\
+                 tasklist /FI \"PID eq {pid}\" 2>nul | find \"{pid}\" >nul\r\n\
+                 if not errorlevel 1 (timeout /t 1 /nobreak >nul & goto wait)\r\n\
+                 copy /Y \"{update}\" \"{current}\" >nul\r\n\
+                 start \"\" \"{current}\"\r\n\
+                 del \"%~f0\"\r\n",
+                pid = std::process::id(),
+                update = update_s,
+                current = current_s,
+            )
+        };
+        std::fs::write(&script, body)?;
+        let mut cmd = std::process::Command::new("cmd");
+        let script_s = script.to_string_lossy().to_string();
+        cmd.args(["/C", script_s.as_str()]);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000);
+        }
+        cmd.spawn()?;
+        app.exit(0);
+        return Ok(());
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let appimage = std::env::var_os("APPIMAGE").map(PathBuf::from);
+        if let Some(target) = appimage {
+            let script = dir.join("apply-update.sh");
+            let body = format!(
+                "#!/bin/sh\nsleep 2\nwhile kill -0 {pid} 2>/dev/null; do sleep 1; done\ncp -f '{update}' '{target}'\nchmod +x '{target}'\n'{target}' &\nrm -f \"$0\"\n",
+                pid = std::process::id(),
+                update = update.to_string_lossy().replace('\'', "'\\''"),
+                target = target.to_string_lossy().replace('\'', "'\\''"),
+            );
+            std::fs::write(&script, body)?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755));
+            }
+            std::process::Command::new("sh").arg(&script).spawn()?;
+            app.exit(0);
+            return Ok(());
+        }
+        return crate::error::err(
+            "Обновление скачано. Для deb/rpm установите его вручную — лаунчер не может заменить системный пакет.",
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        if name.ends_with(".dmg") {
+            let script = dir.join("apply-update.sh");
+            let exe = current.to_string_lossy().to_string();
+            let app_bundle = exe
+                .find(".app/")
+                .map(|i| exe[..i + 4].to_string())
+                .unwrap_or_else(|| "/Applications/Arbuz Launcher.app".to_string());
+            let body = format!(
+                "#!/bin/sh\nsleep 2\nwhile kill -0 {pid} 2>/dev/null; do sleep 1; done\nMNT=$(mktemp -d)\nhdiutil attach '{update}' -nobrowse -mountpoint \"$MNT\" >/dev/null\nAPP=$(find \"$MNT\" -maxdepth 1 -name '*.app' | head -n1)\nrm -rf '{app}'\ncp -R \"$APP\" '{app}'\nhdiutil detach \"$MNT\" >/dev/null\nopen '{app}'\nrm -f \"$0\"\n",
+                pid = std::process::id(),
+                update = update.to_string_lossy().replace('\'', "'\\''"),
+                app = app_bundle.replace('\'', "'\\''"),
+            );
+            std::fs::write(&script, body)?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755));
+            }
+            std::process::Command::new("sh").arg(&script).spawn()?;
+            app.exit(0);
+            return Ok(());
+        }
+        return crate::error::err("Обновление скачано, откройте его вручную.");
+    }
+
+    #[allow(unreachable_code)]
+    {
+        let _ = app;
+        crate::error::err("Автообновление не поддерживается на этой платформе")
+    }
 }
 
 #[cfg(test)]

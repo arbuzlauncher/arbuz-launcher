@@ -16,6 +16,7 @@ export const ACCOUNT_LABEL: Record<AccountKind, string> = {
   elyby: 'Ely.by',
   littleskin: 'LittleSkin',
   offline: 'Без аккаунта',
+  plugin: 'Плагин',
 };
 
 export const BIOME_LABEL: Record<string, string> = {

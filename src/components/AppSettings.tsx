@@ -5,9 +5,12 @@ import { api, type Config } from '../lib/api';
 import { onProgress } from '../lib/events';
 import { LANG_EN, LANGS, normLang, useT } from '../lib/i18n';
 import { setConfigLive, useStore } from '../store';
+import { AiSettings } from './AiSettings';
 import { AnimSettings } from './AnimSettings';
 import { ColorPicker, PRESET_COLORS } from './ColorPicker';
 import { Toggle } from './Controls';
+import { PluginsPanel } from './PluginsPanel';
+import { ThemeEnginePanel } from './ThemeEnginePanel';
 import { ThemePicker } from './ThemePicker';
 
 type ToggleKey = 'closeOnLaunch' | 'showConsole' | 'hideEmpty' | 'checkLauncherUpdates' | 'closeToTray' | 'showPlaytimeStats';
@@ -27,20 +30,11 @@ export function AppSettings() {
   const c = s.config;
   const [apiKey, setApiKey] = useState(c.curseforgeApiKey);
   const [proxyPass, setProxyPass] = useState(c.proxyPass);
-  const [models, setModels] = useState<string[]>([]);
   const set = (patch: Partial<Config>) => s.setConfig({ ...c, ...patch });
   // Акцент меняется перетаскиванием: пишем на диск с задержкой, а не на каждый пиксель.
   const setAccent = (accent: string) => setConfigLive({ ...useStore.getState().config, accent });
   const [javaBusy, setJavaBusy] = useState<number | null>(null);
   const [javaPct, setJavaPct] = useState(0);
-
-  // Список моделей Zen для выбора: грузится один раз при открытии настроек.
-  useEffect(() => {
-    void api
-      .aiModels()
-      .then(setModels)
-      .catch(() => {});
-  }, []);
 
   // Прогресс скачивания JRE приходит событием с id "java".
   useEffect(() => {
@@ -361,6 +355,15 @@ export function AppSettings() {
             <span>{t('Включить темы')}</span>
             <Toggle on={c.experimentalThemes} onClick={() => set({ experimentalThemes: !c.experimentalThemes, ...(c.experimentalThemes ? { style: 'flat' } : {}) })} />
           </div>
+          <ThemeEnginePanel />
+          <PluginsPanel />
+          <div className="sw" style={{ marginTop: 14 }}>
+            <span>{t('Защита Fractureiser')}</span>
+            <Toggle on={c.fractureiserGuard} onClick={() => set({ fractureiserGuard: !c.fractureiserGuard })} />
+          </div>
+          <div className="hint" style={{ paddingBottom: 12 }}>
+            {t('Проверяет моды при каждом запуске лаунчера, после скачивания и перед стартом игры. Заражённые файлы отправляются в карантин профиля.')}
+          </div>
           <div className="sw">
             <span>{t('Включить анимации')}</span>
             <Toggle on={c.anim.enabled} onClick={() => set({ anim: { ...c.anim, enabled: !c.anim.enabled } })} />
@@ -447,54 +450,25 @@ export function AppSettings() {
                 ? t('Все HTTP(S)-запросы лаунчера идут через прокси. Если прокси включён, ускоритель не используется.')
                 : t('HTTP, SOCKS5 или SOCKS5 с удалённым DNS. Локальные адреса идут напрямую.')}
           </div>
-          <div className="sw">
-            <span>{t('ИИ-ассистент сборок')}</span>
-            <Toggle on={c.aiBuilder} onClick={() => set({ aiBuilder: !c.aiBuilder })} />
-          </div>
-          <div className="hint" style={{ paddingBottom: 12 }}>
-            {t('Кнопка «ИИ-сборка» в «Установках»: ассистент подбирает моды, ресурс-паки и шейдеры по описанию и сам скачивает их в новый профиль.')}
-          </div>
-          <div className="sw" style={{ opacity: c.aiBuilder ? 1 : 0.45 }}>
-            <span>{t('Лимит модов')}</span>
-            <input
-              type="number"
-              min={1}
-              max={200}
-              style={{ width: 140 }}
-              disabled={!c.aiBuilder}
-              placeholder={t('Без ограничения')}
-              value={c.aiPackLimit > 0 ? c.aiPackLimit : ''}
-              onChange={(e) => {
-                const n = parseInt(e.target.value, 10);
-                set({ aiPackLimit: Number.isFinite(n) && n > 0 ? Math.min(200, n) : 0 });
-              }}
-            />
-          </div>
-          <div className="sw" style={{ opacity: c.aiBuilder ? 1 : 0.45 }}>
-            <span>{t('Модель ИИ')}</span>
-            <select
-              style={{ width: 220 }}
-              disabled={!c.aiBuilder || models.length === 0}
-              value={c.aiPackModel}
-              onChange={(e) => set({ aiPackModel: e.target.value })}
-            >
-              <option value="">{t('Первая доступная')}</option>
-              {models.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="hint" style={{ paddingBottom: 12 }}>
-            {t('Лимит: сколько модов максимум подбирать — пусто значит «сколько нужно сборке». Источник и модель выбираются в окне «ИИ-сборка».')}
-          </div>
+          <AiSettings />
           <div className="sw">
             <span>{t('Включить изоляцию')}</span>
             <Toggle on={c.modIsolationEnabled} onClick={() => set({ modIsolationEnabled: !c.modIsolationEnabled })} />
           </div>
           <div className="hint" style={{ paddingBottom: 12 }}>
-            {t('Игра запускается в песочнице: мод не может писать за пределами папки профиля. На стандартном и жёстком уровнях он ещё и не может запускать другие программы. Буфер обмена не ограничивается.')}
+            {t('Игра запускается в песочнице: мод не может писать за пределами папки профиля. На стандартном и жёстком уровнях он ещё и не может запускать другие программы.')}
+          </div>
+          <div className="sw" style={{ opacity: c.modIsolationEnabled ? 1 : 0.45 }}>
+            <span>{t('Запретить буфер обмена')}</span>
+            <Toggle
+              on={c.modIsolationClipboard}
+              onClick={() => {
+                if (c.modIsolationEnabled) set({ modIsolationClipboard: !c.modIsolationClipboard });
+              }}
+            />
+          </div>
+          <div className="hint" style={{ paddingBottom: 12 }}>
+            {t('Игра не сможет читать и писать буфер обмена. Может сломать копирование в чате, но не саму игру.')}
           </div>
           <div className="seg" style={{ marginBottom: 12, opacity: c.modIsolationEnabled ? 1 : 0.45 }}>
             {(['min', 'std', 'strict'] as const).map((lv) => (

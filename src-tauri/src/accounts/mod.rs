@@ -76,6 +76,23 @@ pub(crate) fn secret_get(id: &str) -> Option<serde_json::Value> {
     serde_json::from_str(&text).ok()
 }
 
+/// Токен аккаунта, созданного плагином: `{"token": "...", "provider": "..."}`.
+pub(crate) fn plugin_token(id: &str) -> Option<String> {
+    secret_get(id)?
+        .get("token")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string())
+}
+
+/// Провайдер плагина, через который добавлен аккаунт.
+pub(crate) fn plugin_provider(id: &str) -> Option<String> {
+    secret_get(id)?
+        .get("provider")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
 /// Записывает секреты аккаунта в системное хранилище.
 pub(crate) fn secret_set(id: &str, value: &serde_json::Value) -> Res<()> {
     let parts = split_parts(&value.to_string());

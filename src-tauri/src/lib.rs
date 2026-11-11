@@ -13,18 +13,25 @@ mod gamedir;
 mod http;
 mod java;
 mod loaders;
+mod logs;
 mod modrinth_app;
 mod mojang;
 mod models;
+mod modlists;
 mod net;
 mod tunnel;
 mod news;
 mod packs;
 mod paths;
+mod plugins;
+mod plugins_api;
 mod prism;
 mod sandbox;
 mod servers;
 mod scanner;
+mod serverpack;
+mod mc_visual;
+mod themes;
 mod sync;
 mod skins;
 mod state;
@@ -49,7 +56,32 @@ fn show_main(app: &tauri::AppHandle) {
     }
 }
 
+/// Python для плагинов: ищем портативный runtime рядом с exe или в данных и
+/// выставляем PYTHONHOME до первого обращения PyO3 к интерпретатору.
+fn setup_python_home() {
+    let mut candidates = Vec::new();
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            candidates.push(dir.join("python-runtime"));
+            candidates.push(dir.to_path_buf());
+        }
+    }
+    candidates.push(paths::python_dir());
+    for dir in candidates {
+        let zip = dir.join("python312.zip");
+        let lib = dir.join("Lib");
+        if zip.is_file() || lib.is_dir() {
+            std::env::set_var("PYTHONHOME", &dir);
+            if zip.is_file() {
+                std::env::set_var("PYTHONPATH", &zip);
+            }
+            return;
+        }
+    }
+}
+
 pub fn run() {
+    setup_python_home();
     tauri::Builder::default()
         // Должен быть первым плагином: второй запуск не создаёт окно,
         // а поднимает уже работающий лаунчер.
@@ -139,6 +171,35 @@ pub fn run() {
             if tray_result.is_ok() {
                 TRAY_OK.store(true, std::sync::atomic::Ordering::Relaxed);
             }
+            // Плагины и темы инициализируем после создания состояния: конфиг
+            // читается асинхронно, а PyO3 не должен блокировать первый кадр.
+            crate::plugins::runtime::set_app(app.handle().clone());
+            let plugin_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                use tauri::Manager;
+                let state = plugin_app.state::<AppState>();
+                let enabled = state.config.lock().await.plugins_enabled;
+                crate::plugins::manager::cleanup_legacy_artifacts();
+                crate::plugins::manager::reload(enabled);
+                let _ = crate::plugins::call_hook(
+                    "launcher.start",
+                    &serde_json::json!({
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "dataDir": paths::root().to_string_lossy(),
+                    }),
+                );
+                let _ = crate::plugins::call_hook("launcher.ready", &serde_json::json!({}));
+                // Сообщаем интерфейсу, что реестр плагинов готов: первый запрос
+                // из webview мог прийти раньше, чем Python закончил загрузку.
+                crate::plugins::runtime::emit(
+                    "plugins.changed",
+                    serde_json::json!({ "action": "startup" }),
+                );
+            });
+
+            // Fractureiser: фоновая проверка всех профилей при каждом запуске.
+            crate::scanner::fractureiser::startup_scan(app.handle().clone());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -188,6 +249,7 @@ pub fn run() {
             commands::search_catalog,
             commands::install_catalog_item,
             commands::check_updates,
+            commands::ai_dependency_plan,
             commands::apply_updates,
             commands::install_modpack,
             commands::list_modpack_versions,
@@ -202,15 +264,33 @@ pub fn run() {
             commands::ai_diagnose_crash,
             commands::ai_pack_plan,
             commands::ai_models,
+            commands::ai_test,
             commands::pack_info,
             commands::save_pack_info,
             commands::pack_configs,
             commands::read_pack_config,
             commands::save_pack_config,
             commands::restore_pack_config,
+            commands::pack_config_history,
+            commands::pack_config_version,
+            commands::pack_config_diff,
+            commands::validate_pack_config,
             commands::validate_pack,
+            commands::analyze_conflicts,
+            commands::analyze_logs,
+            commands::log_journal,
+            commands::log_support_report,
+            commands::log_save_report,
+            commands::log_rules,
+            commands::log_update_rules,
+            commands::log_apply_fix,
             commands::export_pack,
             commands::open_pack_configs,
+            commands::modlists_list,
+            commands::modlist_save,
+            commands::modlist_delete,
+            commands::modlist_install,
+            commands::build_server_pack,
             commands::account_skin,
             commands::get_news,
             commands::open_data_folder,
@@ -250,7 +330,48 @@ pub fn run() {
             commands::benchmark_start,
             commands::benchmark_cancel,
             commands::benchmark_list,
+            plugins_api::plugins_list,
+            plugins_api::plugin_inspect,
+            plugins_api::plugin_install,
+            plugins_api::plugin_uninstall,
+            plugins_api::plugin_set_enabled,
+            plugins_api::plugin_reload,
+            plugins_api::plugin_open_folder,
+            plugins_api::plugin_open_libs,
+            plugins_api::plugin_panels,
+            plugins_api::plugin_sidebar,
+            plugins_api::plugin_logs,
+            plugins_api::plugin_logs_clear,
+            plugins_api::plugin_storage_get,
+            plugins_api::plugin_storage_set,
+            plugins_api::plugin_storage_all,
+            plugins_api::plugin_config_get,
+            plugins_api::plugin_config_set,
+            plugins_api::plugin_ui_slot,
+            plugins_api::plugin_ui_element,
+            plugins_api::plugin_sources,
+            plugins_api::plugin_commands,
+            plugins_api::plugin_auth_providers,
+            plugins_api::plugin_auth_login,
+            plugins_api::plugin_panel_render,
+            plugins_api::plugin_panel_event,
+            plugins_api::plugin_run_command,
+            plugins_api::plugin_catalog_search,
+            plugins_api::plugin_visual,
+            plugins_api::themes_list,
+            plugins_api::theme_load,
+            plugins_api::theme_install,
+            plugins_api::theme_remove,
+            plugins_api::theme_open_folder,
+            plugins_api::theme_export,
+            commands::launcher_update_download,
+            commands::launcher_update_install,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            if let tauri::RunEvent::Exit = event {
+                let _ = crate::plugins::call_hook("launcher.exit", &serde_json::json!({}));
+            }
+        });
 }

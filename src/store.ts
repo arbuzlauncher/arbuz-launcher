@@ -6,10 +6,13 @@ import type { ArtTheme } from './lib/art';
 import { DEFAULT_CUSTOM, normStyle } from './lib/theme';
 import { cachedAnim } from './lib/anim';
 
-export type View = 'home' | 'installs' | 'accounts' | 'p' | 'app' | 'browse' | 'coop';
+export type View = 'home' | 'installs' | 'accounts' | 'p' | 'app' | 'browse' | 'coop' | 'plugin';
 export type Tab = 'play' | 'mods' | 'worlds' | 'shots' | 'cfg';
-export type Sec = 'g' | 'j' | 'w' | 'c' | 'p' | 'm' | 'srv' | 's' | 'u' | 'v' | 'sc' | 'sy' | 'bm';
-export type Modal = { p: 'ms' | 'ely' | 'off' | 'lsk' | 'pick' } | null;
+export type Sec = 'g' | 'j' | 'w' | 'c' | 'p' | 'm' | 'srv' | 's' | 'u' | 'v' | 'sc' | 'sy' | 'bm' | 'lg';
+export type Modal =
+  | { p: 'ms' | 'ely' | 'off' | 'lsk' | 'pick' }
+  | { p: 'plug'; provider: string }
+  | null;
 
 /** Внутрилаунчерный диалог подтверждения вместо системного window.confirm. */
 export interface ConfirmReq {
@@ -45,6 +48,7 @@ export const DEFAULT_CONFIG: Config = {
   hideEmpty: false,
   modIsolationEnabled: false,
   modIsolationLevel: 'min',
+  modIsolationClipboard: true,
   scannerEnabled: false,
   scannerMode: 'normal',
   aiScanner: false,
@@ -56,6 +60,16 @@ export const DEFAULT_CONFIG: Config = {
   aiPackLimit: 0,
   aiPackSource: '',
   aiPackModel: '',
+  aiProvider: 'opencode',
+  aiApiKey: '',
+  aiBaseUrl: '',
+  aiModel: '',
+  pluginsEnabled: false,
+  pluginSettings: {},
+  themeEngine: false,
+  themePack: '',
+  mcVisual: false,
+  fractureiserGuard: true,
   // До загрузки config.json берём настройки прошлого запуска из localStorage:
   // первый экран не должен дёргаться у тех, кто анимации выключил.
   anim: cachedAnim(),
@@ -104,6 +118,22 @@ export interface StoreState {
   menu: boolean;
   /** Найденное обновление лаунчера (окно с предложением скачать). */
   appUpdate: LauncherUpdate | null;
+  /** Динамический визуал Minecraft для выбранного профиля. */
+  mcVisual: import('./lib/api').McVisual | null;
+  /** Панели, зарегистрированные плагинами. */
+  pluginPanels: import('./lib/api').PluginPanel[];
+  /** Пункты сайдбара, зарегистрированные плагинами. */
+  pluginSidebar: import('./lib/api').PluginSidebarItem[];
+  /** Открытая панель плагина (экран из сайдбара). */
+  pluginView: import('./lib/api').PluginSidebarItem | null;
+  /** Последние логи плагинов. */
+  pluginLogs: import('./lib/api').PluginLogEntry[];
+  /** Счётчик, который заставляет PluginUiLayer переприменить патчи. */
+  pluginUiTick: number;
+  /** CSS активной темы движка (пусто — не применяется). */
+  themeCss: string;
+  /** Активная тема движка (id + layout). */
+  themeLayout: string;
   /** Режим расстановки: кнопки можно таскать мышью. */
   move: boolean;
   setMove: (v: boolean) => void;
@@ -203,6 +233,14 @@ export const useStore = create<StoreState>((set, get) => {
   confirm: null,
   menu: false,
   appUpdate: null,
+  mcVisual: null,
+  pluginPanels: [],
+  pluginSidebar: [],
+  pluginView: null,
+  pluginLogs: [],
+  pluginUiTick: 0,
+  themeCss: '',
+  themeLayout: '',
   move: false,
   setMove: (v) => set({ move: v }),
   iconBust: {},

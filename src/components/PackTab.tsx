@@ -3,8 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { convertFileSrc } from '@tauri-apps/api/core';
 import {
   api,
+  type ConfigCheck,
   type ConfigDoc,
   type ConfigEntry,
+  type ConfigVersion,
   type Instance,
   type PackInfo,
   type PackIssue,
@@ -15,6 +17,7 @@ import { exportPackAs } from '../lib/packExport';
 import { useT } from '../lib/i18n';
 import { LOADER_LABEL } from '../lib/labels';
 import { useStore } from '../store';
+import { ServerPackCard } from './ServerPackCard';
 
 const baseName = (p: string) => p.split('/').pop() ?? p;
 const dirName = (p: string) => p.split('/').slice(0, -1).join('/');
@@ -43,6 +46,9 @@ export function PackTab({ inst, initialMod }: { inst: Instance; initialMod: stri
   const [doc, setDoc] = useState<ConfigDoc | null>(null);
   const [text, setText] = useState('');
   const [docBusy, setDocBusy] = useState(false);
+  const [syntax, setSyntax] = useState<ConfigCheck | null>(null);
+  const [history, setHistory] = useState<ConfigVersion[] | null>(null);
+  const [diff, setDiff] = useState<{ stamp: number; text: string } | null>(null);
 
   const [issues, setIssues] = useState<PackIssue[] | null>(null);
   const [checking, setChecking] = useState(false);
@@ -76,6 +82,9 @@ export function PackTab({ inst, initialMod }: { inst: Instance; initialMod: stri
     setSel(null);
     setDoc(null);
     setText('');
+    setSyntax(null);
+    setHistory(null);
+    setDiff(null);
   }, [initialMod, inst.id]);
 
   const filtered = useMemo(() => {
@@ -98,6 +107,9 @@ export function PackTab({ inst, initialMod }: { inst: Instance; initialMod: stri
         const d = await api.readPackConfig(inst.id, path);
         setDoc(d);
         setText(d.content);
+        setSyntax(null);
+        setHistory(null);
+        setDiff(null);
       } catch (e) {
         toast(String(e));
         setDoc(null);
@@ -111,29 +123,48 @@ export function PackTab({ inst, initialMod }: { inst: Instance; initialMod: stri
 
   const dirty = doc !== null && text !== doc.content;
 
-  const jsonError = useMemo(() => {
-    if (!doc || !doc.path.toLowerCase().endsWith('.json')) return null;
-    try {
-      JSON.parse(text);
-      return null;
-    } catch (e) {
-      return String(e);
+  // Проверяем синтаксис на бэкенде (JSON/TOML/свойства) с небольшой задержкой.
+  useEffect(() => {
+    if (!doc) {
+      setSyntax(null);
+      return;
     }
+    let alive = true;
+    const timer = setTimeout(() => {
+      void api
+        .validatePackConfig(doc.path, text)
+        .then((r) => {
+          if (alive) setSyntax(r);
+        })
+        .catch(() => {
+          if (alive) setSyntax(null);
+        });
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
   }, [doc, text]);
+
+  const syntaxError = syntax && !syntax.ok ? syntax.message : null;
 
   const lines = useMemo(() => text.split('\n'), [text]);
 
   const saveCfg = async () => {
     if (!doc) return;
-    if (jsonError) {
-      toast(t('Исправьте ошибку JSON перед сохранением'));
-      return;
-    }
     setDocBusy(true);
     try {
+      const v = await api.validatePackConfig(doc.path, text);
+      setSyntax(v);
+      if (!v.ok) {
+        toast(v.message);
+        return;
+      }
       const d = await api.savePackConfig(inst.id, doc.path, text);
       setDoc(d);
       setText(d.content);
+      setHistory(null);
+      setDiff(null);
       toast(t('Сохранено: {f}', { f: d.path }));
     } catch (e) {
       toast(String(e));
@@ -149,6 +180,8 @@ export function PackTab({ inst, initialMod }: { inst: Instance; initialMod: stri
       const d = await api.restorePackConfig(inst.id, doc.path);
       setDoc(d);
       setText(d.content);
+      setHistory(null);
+      setDiff(null);
       toast(t('Откатили из резервной копии'));
     } catch (e) {
       toast(String(e));
@@ -157,12 +190,51 @@ export function PackTab({ inst, initialMod }: { inst: Instance; initialMod: stri
     }
   };
 
+  const openHistory = async () => {
+    if (!doc) return;
+    setDocBusy(true);
+    try {
+      setHistory(await api.packConfigHistory(inst.id, doc.path));
+      setDiff(null);
+    } catch (e) {
+      toast(String(e));
+    } finally {
+      setDocBusy(false);
+    }
+  };
+
+  const showDiff = async (stamp: number) => {
+    if (!doc) return;
+    try {
+      setDiff({ stamp, text: await api.packConfigDiff(inst.id, doc.path, stamp) });
+    } catch (e) {
+      toast(String(e));
+    }
+  };
+
+  const loadVersion = async (stamp: number) => {
+    if (!doc) return;
+    try {
+      setText(await api.packConfigVersion(inst.id, doc.path, stamp));
+      setDiff(null);
+      toast(t('Версия загружена в редактор — нажмите «Сохранить»'));
+    } catch (e) {
+      toast(String(e));
+    }
+  };
+
+  const fmtStamp = (ms: number) => {
+    const d = new Date(ms);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  };
+
   const formatJson = () => {
     if (!doc || !doc.path.toLowerCase().endsWith('.json')) return;
     try {
       setText(JSON.stringify(JSON.parse(text), null, 2));
     } catch {
-      /* ошибку покажет jsonError */
+      /* ошибку покажет проверка синтаксиса */
     }
   };
 
@@ -429,6 +501,9 @@ export function PackTab({ inst, initialMod }: { inst: Instance; initialMod: stri
                       {t('Формат')}
                     </button>
                   )}
+                  <button className="btn sm" disabled={docBusy} onClick={() => void openHistory()}>
+                    {t('История')}
+                  </button>
                   {doc.hasBackup && (
                     <button className="btn sm" disabled={docBusy} onClick={() => void restoreCfg()}>
                       {t('Откатить')}
@@ -436,13 +511,47 @@ export function PackTab({ inst, initialMod }: { inst: Instance; initialMod: stri
                   )}
                   <button
                     className="btn sm pr"
-                    disabled={docBusy || !dirty || !!jsonError}
+                    disabled={docBusy || !dirty || !!syntaxError}
                     onClick={() => void saveCfg()}
                   >
                     {dirty ? t('Сохранить') : t('Сохранено')}
                   </button>
                 </div>
-                {jsonError && <div className="pk-json-err">{jsonError}</div>}
+                {syntax && (
+                  <div className={syntax.ok ? 'pk-check ok' : 'pk-check err'}>{syntax.message}</div>
+                )}
+                {history && (
+                  <div className="pk-history">
+                    <div className="row g8" style={{ alignItems: 'center' }}>
+                      <b>{t('История изменений')}</b>
+                      <span className="hint">{history.length}</span>
+                      <button className="btn sm" onClick={() => setHistory(null)}>
+                        {t('Закрыть')}
+                      </button>
+                    </div>
+                    {history.length === 0 ? (
+                      <div className="hint">{t('Сохранённых версий пока нет.')}</div>
+                    ) : (
+                      history.map((v) => (
+                        <div className="pk-hist-row" key={v.stamp}>
+                          <span>{fmtStamp(v.stamp)}</span>
+                          <span className="hint">{fmtBytes(v.size)}</span>
+                          <button className="btn sm" onClick={() => void showDiff(v.stamp)}>
+                            Diff
+                          </button>
+                          <button className="btn sm" onClick={() => void loadVersion(v.stamp)}>
+                            {t('Загрузить')}
+                          </button>
+                        </div>
+                      ))
+                    )}
+                    {diff && (
+                      <pre className="pk-diff" aria-label={t('Различия')}>
+                        {diff.text}
+                      </pre>
+                    )}
+                  </div>
+                )}
                 <div className="pk-code-wrap">
                   {lines.length <= 4000 && (
                     <div className="pk-lines" ref={gutRef}>
@@ -492,6 +601,7 @@ export function PackTab({ inst, initialMod }: { inst: Instance; initialMod: stri
           </button>
         </div>
       </div>
+      <ServerPackCard inst={inst} />
     </div>
   );
 }

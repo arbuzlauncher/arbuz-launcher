@@ -149,6 +149,45 @@ pub fn instance_quarantine_dir(id: &str) -> PathBuf {
     instance_dir(id).join("quarantine")
 }
 
+// plugins/ и темы
+/// Установленные Python-плагины (`.aplug`) и распакованные архивы `.arbz`.
+pub fn plugins_dir() -> PathBuf {
+    root().join("plugins")
+}
+
+/// Пользовательские Python-библиотеки, общие для всех плагинов.
+///
+/// Плагин может написать свой модуль в `<data>/libs/` и импортировать его
+/// обычным `import`. Папка добавляется в `sys.path` при загрузке плагинов.
+pub fn libs_dir() -> PathBuf {
+    root().join("libs")
+}
+
+/// Кэш плагинов: извлечённые ассеты, картинки, вычисленные данные.
+pub fn plugin_cache_dir(id: &str) -> PathBuf {
+    root().join("cache").join("plugins").join(id)
+}
+
+/// Пользовательские темы оформления (`theme.json` + `theme.css`).
+pub fn themes_dir() -> PathBuf {
+    root().join("themes")
+}
+
+/// Кэш визуала Minecraft: панорамы, кнопки, цвета по версии.
+pub fn mc_visual_cache_dir(version: &str) -> PathBuf {
+    root().join("cache").join("mc-visual").join(version)
+}
+
+/// Скачанные обновления лаунчера.
+pub fn updates_dir() -> PathBuf {
+    root().join("updates")
+}
+
+/// Портативный Python для плагинов (если лаунчер поставлен с ним).
+pub fn python_dir() -> PathBuf {
+    root().join("python")
+}
+
 // shared/
 pub fn shared_dir() -> PathBuf {
     root().join("shared")

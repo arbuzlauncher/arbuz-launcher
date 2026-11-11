@@ -44,3 +44,27 @@ export const onMsStep = (h: (p: MsStepPayload) => void): Promise<UnlistenFn> =>
 /** Бенчмарк завершился: итоги прогона. */
 export const onBenchDone = (h: (p: unknown) => void): Promise<UnlistenFn> =>
   listen<unknown>('bench-done', (e) => h(e.payload));
+
+/** Fractureiser нашёл заражённые файлы при фоновой проверке. */
+export interface SecurityAlertPayload {
+  source: string;
+  hits: Array<{
+    file: string;
+    sha256: string;
+    reason: string;
+    instance: string | null;
+    quarantined: boolean;
+  }>;
+}
+
+export const onSecurityAlert = (h: (p: SecurityAlertPayload) => void): Promise<UnlistenFn> =>
+  listen<SecurityAlertPayload>('security-alert', (e) => h(e.payload));
+
+/** Событие от плагина: toast, регистрация темы/источника, visual.changed и т.п. */
+export interface PluginEventPayload {
+  event: string;
+  payload: Record<string, unknown>;
+}
+
+export const onPluginEvent = (h: (p: PluginEventPayload) => void): Promise<UnlistenFn> =>
+  listen<PluginEventPayload>('plugin-event', (e) => h(e.payload));

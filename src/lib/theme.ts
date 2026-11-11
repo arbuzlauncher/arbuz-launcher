@@ -286,6 +286,9 @@ export function applyTheme(
   el.dataset.v = softOf(style, custom) ? 'b' : 'a';
   // Стиль темы отдельным атрибутом: Monet и классика отличаются не только цветом.
   el.dataset.style = style === 'catppuccin' || style === 'dracula' ? 'monet' : style;
+  // Нативные поля, datalist и скроллбары должны следовать тёмной/светлой теме,
+  // иначе WebView2 рисует их светлыми независимо от палитры.
+  el.style.colorScheme = dark ? 'dark' : 'light';
   if (style === 'custom') {
     const c = normCustom(custom);
     el.dataset.custom = '1';

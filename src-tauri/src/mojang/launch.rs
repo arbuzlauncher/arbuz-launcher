@@ -186,6 +186,26 @@ pub async fn launch(
         }
     }
 
+    let exit_code = match &result {
+        Ok(Outcome::Done(code)) => *code,
+        _ => None,
+    };
+    let _ = crate::logs::journal_finish(&id, exit_code).await;
+    let _ = crate::plugins::call_hook(
+        "game.exit",
+        &serde_json::json!({ "instanceId": id, "code": exit_code }),
+    );
+    if matches!(exit_code, Some(code) if code != 0) {
+        let _ = crate::plugins::call_hook(
+            "game.crash",
+            &serde_json::json!({ "instanceId": id, "code": exit_code }),
+        );
+    }
+    let _ = crate::plugins::call_hook(
+        "game.exit.after",
+        &serde_json::json!({ "instanceId": id, "code": exit_code }),
+    );
+
     match result {
         Ok(Outcome::Done(code)) => {
             let _ = app.emit(
@@ -226,7 +246,35 @@ async fn run(
     // E. Начало.
     let _ = app.emit("progress", Progress { id: id.to_string(), pct: 0.0 });
 
-    // D. Сканер модов: до скачивания чего-либо. Пользователь мог явно
+    // Плагины могут отменить запуск (например, свой родительский контроль).
+    let hook = crate::plugins::call_hook(
+        "instance.launch.before",
+        &serde_json::json!({
+            "instanceId": id,
+            "name": inst.name,
+            "mcVersion": inst.mc_version,
+            "loader": inst.loader.label(),
+        }),
+    );
+    if let Some(cancel) = hook.iter().rev().find_map(|r| {
+        r.result
+            .get("cancel")
+            .and_then(|v| v.as_bool())
+            .filter(|v| *v)
+            .map(|_| r.result.clone())
+    }) {
+        let msg = cancel
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Запуск отменён плагином");
+        return err(msg.to_string());
+    }
+
+    // D. Защита Fractureiser работает всегда, даже если обычный сканер
+    // выключен или пользователь подтвердил «запустить всё равно».
+    crate::scanner::fractureiser::enforce_instance(id).await?;
+
+    // D1. Сканер модов: до скачивания чего-либо. Пользователь мог явно
     // подтвердить «запустить всё равно» — тогда гейт пропускается.
     if !scan_override {
         crate::scanner::launch_gate(state, id).await?;
@@ -458,6 +506,28 @@ async fn run(
             kill_rx,
             crate::accounts::microsoft::token(&state.http, acc)
         ),
+        AccountKind::Plugin => {
+            let provider = crate::accounts::plugin_provider(&acc.id).unwrap_or_default();
+            let results = crate::plugins::call_hook(
+                "auth.token",
+                &serde_json::json!({
+                    "accountId": acc.id,
+                    "provider": provider,
+                    "name": acc.name,
+                }),
+            );
+            let token = results.iter().rev().find_map(|r| {
+                r.result
+                    .get("token")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string())
+            });
+            match token.or_else(|| crate::accounts::plugin_token(&acc.id)) {
+                Some(t) => t,
+                None => return err("Плагин не выдал токен для этого аккаунта"),
+            }
+        }
     };
 
     let injector_url: Option<&str> = match acc.kind {
@@ -601,13 +671,17 @@ async fn run(
     }
 
     #[cfg(windows)]
-    let guard = {
-        let (on, lvl) = {
+    let (guard, clipboard) = {
+        let (on, lvl, clipboard) = {
             let c = state.config.lock().await;
-            (c.mod_isolation_enabled, c.mod_isolation_level.clone())
+            (
+                c.mod_isolation_enabled,
+                c.mod_isolation_level.clone(),
+                c.mod_isolation_clipboard,
+            )
         };
         let has_isolated = !crate::content::load_meta(id).await.isolated.is_empty();
-        crate::sandbox::level_of(on, &lvl, has_isolated)
+        (crate::sandbox::level_of(on, &lvl, has_isolated), clipboard)
     };
     #[cfg(not(windows))]
     let _guard = "off";
@@ -665,16 +739,21 @@ async fn run(
     #[cfg(windows)]
     if guard != "off" {
         if let Some(h) = child.raw_handle() {
-            crate::sandbox::apply(h, guard, sandbox_ready);
+            crate::sandbox::apply(h, guard, sandbox_ready, clipboard);
         }
     }
     state.game_pids.lock().await.insert(id.to_string(), child.id().unwrap_or(0));
     crate::benchmark::on_pid(id, child.id().unwrap_or(0));
+    crate::logs::journal_start(id);
     let _ = app.emit(
         "game-start",
         GameStart {
             id: id.to_string(),
         },
+    );
+    let _ = crate::plugins::call_hook(
+        "game.start",
+        &serde_json::json!({ "instanceId": id, "name": inst.name, "mcVersion": inst.mc_version }),
     );
 
     // O. Чтение логов (токен маскируем, если он длиннее 8 символов).

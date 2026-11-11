@@ -181,6 +181,9 @@ fn load_config() -> Config {
         cfg.onboarded = false;
     }
     cfg.sanitize();
+    // ИИ-клиент читает провайдера и ключ из глобальных настроек, чтобы не
+    // протаскивать AppState через все вызовы.
+    crate::ai::set_settings(&cfg);
     cfg
 }
 

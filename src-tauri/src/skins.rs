@@ -100,6 +100,19 @@ async fn skin_url(state: &AppState, acc: &Account) -> Option<String> {
             let uuid = mojang_uuid(state, nick).await?;
             mojang_texture(state, &uuid).await
         }
+        AccountKind::Plugin => {
+            let results = crate::plugins::call_hook(
+                "auth.skin",
+                &serde_json::json!({ "accountId": acc.id, "name": acc.name }),
+            );
+            results.into_iter().rev().find_map(|r| {
+                r.result
+                    .get("url")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| s.starts_with("https://"))
+                    .map(|s| s.to_string())
+            })
+        }
     }
 }
 

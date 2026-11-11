@@ -11,6 +11,7 @@ import { monetLike } from '../lib/theme';
 import { curAccount, curInstance, iconUrl, useArtTheme, useStore } from '../store';
 import { Avatar } from './Controls';
 import { MonitorStrip } from './GameMonitor';
+import { PluginSlot } from './PluginUi';
 
 export function BottomBar() {
   const s = useStore();
@@ -40,8 +41,8 @@ export function BottomBar() {
     );
 
   return (
-    <div className="bottom">
-      <button type="button" className="bottom-cur" onClick={() => setOpen((v) => !v)}>
+    <div className="bottom" data-plugin-el="bottom">
+      <button type="button" className="bottom-cur" data-plugin-el="bottom.current" onClick={() => setOpen((v) => !v)}>
         <span className="inst-tone">{tone}</span>
         <span className="bottom-cur-info">
           <b>{inst.name}</b>
@@ -94,13 +95,15 @@ export function BottomBar() {
         <button
           type="button"
           className={'bottom-play' + (run ? ' run' : '')}
+          data-plugin-el="bottom.play"
           onClick={() => void playInstance(inst.id, null)}
         >
           {run ? t('Стоп') : t('Играть').toUpperCase()}
         </button>
       </div>
 
-      <div className="bottom-actions">
+      <div className="bottom-actions" data-plugin-el="bottom.actions">
+        <PluginSlot slot="bottom.actions" props={{ view: s.view }} className="bottom-plugin-slot" />
         <button
           type="button"
           className="btn"

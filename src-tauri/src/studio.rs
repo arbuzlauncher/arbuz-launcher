@@ -11,11 +11,12 @@ use crate::store;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use std::time::UNIX_EPOCH;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Больше этого файл конфигурации не открываем: это уже не конфиг.
 const MAX_CFG: u64 = 2 * 1024 * 1024;
@@ -144,6 +145,8 @@ struct ModMeta {
     enabled: bool,
     /// Версия из метаданных (пусто, если её нет или это заглушка сборки).
     version: String,
+    /// Загрузчик, для которого собран мод: fabric | quilt | forge | neoforge.
+    loader: Option<String>,
     /// id зависимостей.
     depends: Vec<String>,
     /// id, которые мод предоставляет (модули Fabric API и т.п.).
@@ -418,6 +421,7 @@ fn read_mod_meta(path: &Path, rel: &str, enabled: bool) -> ModMeta {
         file: rel.to_string(),
         enabled,
         version: String::new(),
+        loader: None,
         depends: Vec::new(),
         provides: Vec::new(),
     };
@@ -430,6 +434,7 @@ fn read_mod_meta(path: &Path, rel: &str, enabled: bool) -> ModMeta {
 
     // Fabric.
     if let Ok(e) = z.by_name("fabric.mod.json") {
+        m.loader = Some("fabric".into());
         if let Ok(v) = serde_json::from_reader::<_, Value>(e) {
             if let Some(id) = v["id"].as_str() {
                 m.id = id.to_string();
@@ -457,6 +462,7 @@ fn read_mod_meta(path: &Path, rel: &str, enabled: bool) -> ModMeta {
 
     // Quilt.
     if let Ok(e) = z.by_name("quilt.mod.json") {
+        m.loader = Some("quilt".into());
         if let Ok(v) = serde_json::from_reader::<_, Value>(e) {
             let q = &v["quilt_loader"];
             if let Some(id) = q["id"].as_str() {
@@ -496,6 +502,11 @@ fn read_mod_meta(path: &Path, rel: &str, enabled: bool) -> ModMeta {
         let Ok(mut e) = z.by_name(name) else {
             continue;
         };
+        m.loader = Some(if name.contains("neoforge") {
+            "neoforge".into()
+        } else {
+            "forge".into()
+        });
         let mut s = String::new();
         if e.read_to_string(&mut s).is_err() {
             continue;
@@ -776,6 +787,7 @@ pub async fn save_config(id: &str, rel: &str, content: &str) -> Res<ConfigDoc> {
     }
     if tokio::fs::metadata(&path).await.is_ok() {
         let _ = tokio::fs::copy(&path, bak(&path)).await;
+        let _ = snapshot(id, rel, &path).await;
     }
     write_text_atomic(&path, content.as_bytes()).await?;
     read_doc(id, rel).await
@@ -788,13 +800,517 @@ pub async fn restore_config(id: &str, rel: &str) -> Res<ConfigDoc> {
         Ok(d) => d,
         Err(_) => return err("Резервная копия не найдена"),
     };
+    if tokio::fs::metadata(&path).await.is_ok() {
+        let _ = snapshot(id, rel, &path).await;
+    }
     write_text_atomic(&path, &data).await?;
     read_doc(id, rel).await
 }
 
 // ---------------------------------------------------------------------------
+// История конфигов и проверка синтаксиса
+// ---------------------------------------------------------------------------
+
+/// Больше этого числа версий на файл не храним.
+const MAX_HISTORY: usize = 50;
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigVersion {
+    /// Метка времени в миллисекундах (она же имя файла).
+    pub stamp: u64,
+    pub size: u64,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigCheck {
+    pub ok: bool,
+    pub message: String,
+}
+
+fn history_root(id: &str, rel: &str) -> PathBuf {
+    let mut h = DefaultHasher::new();
+    rel.replace('\\', "/").hash(&mut h);
+    paths::root()
+        .join("config-history")
+        .join(id)
+        .join(format!("{:016x}", h.finish()))
+}
+
+fn stamp_of(path: &Path) -> Option<u64> {
+    path.file_stem()
+        .and_then(|s| s.to_str())
+        .and_then(|s| s.parse::<u64>().ok())
+}
+
+async fn snapshot(id: &str, rel: &str, path: &Path) -> Res<()> {
+    let data = tokio::fs::read(path).await?;
+    let dir = history_root(id, rel);
+    tokio::fs::create_dir_all(&dir).await?;
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("txt")
+        .to_ascii_lowercase();
+    tokio::fs::write(dir.join(format!("{stamp}.{ext}")), data).await?;
+
+    // Старые версии чистим, чтобы папка не росла бесконечно.
+    let mut files: Vec<(u64, PathBuf)> = Vec::new();
+    if let Ok(mut rd) = tokio::fs::read_dir(&dir).await {
+        while let Ok(Some(e)) = rd.next_entry().await {
+            let p = e.path();
+            if let Some(s) = stamp_of(&p) {
+                files.push((s, p));
+            }
+        }
+    }
+    if files.len() > MAX_HISTORY {
+        files.sort_by(|a, b| b.0.cmp(&a.0));
+        for (_, p) in files.into_iter().skip(MAX_HISTORY) {
+            let _ = tokio::fs::remove_file(p).await;
+        }
+    }
+    Ok(())
+}
+
+pub async fn config_history(id: &str, rel: &str) -> Res<Vec<ConfigVersion>> {
+    load(id).await?;
+    let _ = cfg_path(id, rel)?;
+    let dir = history_root(id, rel);
+    let mut out = Vec::new();
+    if let Ok(mut rd) = tokio::fs::read_dir(&dir).await {
+        while let Ok(Some(e)) = rd.next_entry().await {
+            let p = e.path();
+            let Some(stamp) = stamp_of(&p) else { continue };
+            let size = e.metadata().await.map(|m| m.len()).unwrap_or(0);
+            out.push(ConfigVersion { stamp, size });
+        }
+    }
+    out.sort_by(|a, b| b.stamp.cmp(&a.stamp));
+    out.truncate(MAX_HISTORY);
+    Ok(out)
+}
+
+fn version_path(id: &str, rel: &str, stamp: u64) -> Res<PathBuf> {
+    let dir = history_root(id, rel);
+    let ext = Path::new(rel)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("txt")
+        .to_ascii_lowercase();
+    let p = dir.join(format!("{stamp}.{ext}"));
+    if !p.is_file() {
+        return err("Версия конфига не найдена");
+    }
+    Ok(p)
+}
+
+pub async fn config_version(id: &str, rel: &str, stamp: u64) -> Res<String> {
+    load(id).await?;
+    let _ = cfg_path(id, rel)?;
+    let p = version_path(id, rel, stamp)?;
+    Ok(tokio::fs::read_to_string(&p).await?)
+}
+
+/// Простой построчный diff: общий префикс/суффикс не выводим, середину
+/// показываем как удалённые и добавленные строки.
+fn diff_lines(old: &str, new: &str) -> String {
+    let a: Vec<&str> = old.lines().collect();
+    let b: Vec<&str> = new.lines().collect();
+    let mut pre = 0;
+    while pre < a.len() && pre < b.len() && a[pre] == b[pre] {
+        pre += 1;
+    }
+    let mut suf = 0;
+    while suf < a.len().saturating_sub(pre)
+        && suf < b.len().saturating_sub(pre)
+        && a[a.len() - 1 - suf] == b[b.len() - 1 - suf]
+    {
+        suf += 1;
+    }
+    let mut out = String::new();
+    let ctx = pre.saturating_sub(3);
+    for (i, line) in a.iter().enumerate().take(pre).skip(ctx) {
+        out.push_str(&format!(" {}\n", line));
+        let _ = i;
+    }
+    for line in &a[pre..a.len() - suf] {
+        out.push_str(&format!("-{}\n", line));
+    }
+    for line in &b[pre..b.len() - suf] {
+        out.push_str(&format!("+{}\n", line));
+    }
+    let end = (a.len() - suf + 3).min(a.len());
+    for line in &a[a.len() - suf..end] {
+        out.push_str(&format!(" {}\n", line));
+    }
+    if out.is_empty() {
+        out.push_str("Изменений нет.\n");
+    }
+    out
+}
+
+pub async fn config_diff(id: &str, rel: &str, stamp: u64) -> Res<String> {
+    load(id).await?;
+    let path = cfg_path(id, rel)?;
+    let old = config_version(id, rel, stamp).await?;
+    let new = tokio::fs::read_to_string(&path).await.unwrap_or_default();
+    Ok(diff_lines(&old, &new))
+}
+
+/// Проверяет синтаксис конфига (JSON и TOML — строго, остальные — мягко).
+pub fn validate_config(rel: &str, content: &str) -> ConfigCheck {
+    let ext = Path::new(rel)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let bad = |message: String| ConfigCheck {
+        ok: false,
+        message,
+    };
+    match ext.as_str() {
+        "json" => match serde_json::from_str::<Value>(content) {
+            Ok(_) => ConfigCheck {
+                ok: true,
+                message: "JSON корректен".into(),
+            },
+            Err(e) => bad(format!("JSON: {e}")),
+        },
+        "toml" => match toml::from_str::<toml::Value>(content) {
+            Ok(_) => ConfigCheck {
+                ok: true,
+                message: "TOML корректен".into(),
+            },
+            Err(e) => bad(format!("TOML: {e}")),
+        },
+        "properties" | "ini" | "cfg" | "conf" => {
+            let mut seen: HashMap<&str, usize> = HashMap::new();
+            for (i, line) in content.lines().enumerate() {
+                let line = line.trim();
+                if line.is_empty() || line.starts_with('#') || line.starts_with(';') || line.starts_with('[') {
+                    continue;
+                }
+                let Some((key, _)) = line.split_once(['=', ':']) else {
+                    continue;
+                };
+                let key = key.trim();
+                if let Some(prev) = seen.insert(key, i + 1) {
+                    return bad(format!(
+                        "Ключ «{key}» повторяется: строки {prev} и {}",
+                        i + 1
+                    ));
+                }
+            }
+            ConfigCheck {
+                ok: true,
+                message: "Дубликатов ключей нет".into(),
+            }
+        }
+        _ => ConfigCheck {
+            ok: true,
+            message: "Для этого формата проверка синтаксиса недоступна".into(),
+        },
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Проверка сборки
 // ---------------------------------------------------------------------------
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictAction {
+    pub id: String,
+    pub label: String,
+    /// disable | enable | remove | open_catalog
+    pub kind: String,
+    pub files: Vec<String>,
+    pub mod_id: Option<String>,
+    pub query: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ModConflict {
+    pub id: String,
+    /// duplicate | loader | missing_dep | disabled_dep | known
+    pub kind: String,
+    pub severity: String,
+    pub title: String,
+    pub detail: String,
+    pub actions: Vec<ConflictAction>,
+}
+
+fn conflict_action(
+    id: String,
+    label: &str,
+    kind: &str,
+    files: Vec<String>,
+    mod_id: Option<String>,
+    query: Option<String>,
+) -> ConflictAction {
+    ConflictAction {
+        id,
+        label: label.to_string(),
+        kind: kind.to_string(),
+        files,
+        mod_id,
+        query,
+    }
+}
+
+fn version_parts(v: &str) -> Vec<u64> {
+    v.split(|c: char| !c.is_ascii_digit())
+        .filter(|s| !s.is_empty())
+        .filter_map(|s| s.parse::<u64>().ok())
+        .collect()
+}
+
+fn newer(a: &str, b: &str) -> std::cmp::Ordering {
+    let (pa, pb) = (version_parts(a), version_parts(b));
+    match pa.cmp(&pb) {
+        std::cmp::Ordering::Equal => a.cmp(b),
+        other => other,
+    }
+}
+
+/// Анализатор конфликтов: дубликаты, чужой загрузчик, отсутствующие
+/// зависимости и известные несовместимые пары. Для каждой проблемы есть
+/// готовые действия (`disable`/`enable`/`remove`/`open_catalog`).
+pub async fn conflicts(id: &str) -> Res<Vec<ModConflict>> {
+    let inst = load(id).await?;
+    let mods = scan_mods(&inst);
+    let mut out: Vec<ModConflict> = Vec::new();
+
+    // 1. Дубликаты по mod id.
+    let mut by_id: HashMap<String, Vec<&ModMeta>> = HashMap::new();
+    for m in &mods {
+        by_id.entry(m.id.to_ascii_lowercase()).or_default().push(m);
+    }
+    let mut dupes: Vec<(&String, &Vec<&ModMeta>)> =
+        by_id.iter().filter(|(_, l)| l.len() > 1).collect();
+    dupes.sort_by(|a, b| a.0.cmp(b.0));
+    for (mid, list) in dupes {
+        let mut sorted = list.clone();
+        sorted.sort_by(|a, b| newer(&b.version, &a.version));
+        let keep = sorted.first().map(|m| m.file.clone());
+        let extra: Vec<String> = sorted
+            .iter()
+            .filter(|m| Some(&m.file) != keep.as_ref())
+            .map(|m| m.file.clone())
+            .collect();
+        let mut actions = Vec::new();
+        if !extra.is_empty() {
+            actions.push(conflict_action(
+                format!("dup-newest-{mid}"),
+                "Оставить новейшую версию",
+                "disable",
+                extra.clone(),
+                Some(mid.to_string()),
+                None,
+            ));
+            actions.push(conflict_action(
+                format!("dup-all-{mid}"),
+                "Отключить все дубликаты",
+                "disable",
+                list.iter().map(|m| m.file.clone()).collect(),
+                Some(mid.to_string()),
+                None,
+            ));
+        }
+        let files = list.iter().map(|m| m.file.clone()).collect::<Vec<_>>().join(", ");
+        out.push(ModConflict {
+            id: format!("duplicate-{mid}"),
+            kind: "duplicate".into(),
+            severity: "error".into(),
+            title: format!("Дубликат мода «{mid}»"),
+            detail: format!(
+                "Найдено файлов: {}. Версии: {}. Загрузчик возьмёт случайную — оставьте одну.",
+                files,
+                list.iter()
+                    .map(|m| if m.version.is_empty() { "неизвестна".to_string() } else { m.version.clone() })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            actions,
+        });
+    }
+
+    // 2. Мод собран под другой загрузчик.
+    let want = loader_key(inst.loader);
+    for m in mods.iter().filter(|m| m.enabled) {
+        let Some(loader) = &m.loader else { continue };
+        let ok = match (want, loader.as_str()) {
+            ("fabric", "fabric") => true,
+            ("quilt", "fabric" | "quilt") => true,
+            ("forge", "forge") => true,
+            ("neoforge", "neoforge") => true,
+            ("vanilla", _) => false,
+            _ => false,
+        };
+        if ok {
+            continue;
+        }
+        out.push(ModConflict {
+            id: format!("loader-{}", m.id),
+            kind: "loader".into(),
+            severity: "error".into(),
+            title: format!("«{}» не для этого загрузчика", m.name),
+            detail: format!(
+                "Профиль использует {}, а мод собран для {}. Игра не загрузит его.",
+                inst.loader.label(),
+                loader
+            ),
+            actions: vec![conflict_action(
+                format!("loader-disable-{}", m.id),
+                "Отключить мод",
+                "disable",
+                vec![m.file.clone()],
+                Some(m.id.clone()),
+                None,
+            )],
+        });
+    }
+
+    // 3. Зависимости.
+    let enabled: Vec<&ModMeta> = mods.iter().filter(|m| m.enabled).collect();
+    let mut have: HashSet<String> = HashSet::new();
+    for m in &enabled {
+        have.insert(m.id.to_ascii_lowercase());
+        for p in &m.provides {
+            have.insert(p.to_ascii_lowercase());
+        }
+    }
+    let all: HashMap<String, &ModMeta> = mods
+        .iter()
+        .map(|m| (m.id.to_ascii_lowercase(), m))
+        .collect();
+    let have_fabric_api = have.contains("fabric-api")
+        || have.contains("fabric_api")
+        || have.contains("fabricapi");
+    let have_qfapi = have.contains("qfapi")
+        || have.contains("quilted_fabric_api")
+        || have.contains("quilted-fabric-api");
+    for m in &enabled {
+        for dep in &m.depends {
+            let d = dep.to_ascii_lowercase();
+            if d.is_empty() || BUILTIN_DEPS.contains(&d.as_str()) || have.contains(&d) {
+                continue;
+            }
+            if (d.starts_with("fabric-") || d.starts_with("fabric_")) && have_fabric_api {
+                continue;
+            }
+            if (d.starts_with("quilted-") || d.starts_with("quilt-"))
+                && (have_qfapi || have_fabric_api)
+            {
+                continue;
+            }
+            let dn = norm_id(&d);
+            let soft = dn.len() >= 4
+                && enabled.iter().any(|x| {
+                    let xn = norm_id(&x.id);
+                    xn.len() >= 4 && (xn == dn || xn.contains(&dn) || dn.contains(&xn))
+                });
+            if soft {
+                continue;
+            }
+            let disabled = all.get(&d).filter(|x| !x.enabled);
+            let actions = if let Some(x) = disabled {
+                vec![conflict_action(
+                    format!("dep-enable-{}-{}", m.id, d),
+                    "Включить нужный мод",
+                    "enable",
+                    vec![x.file.clone()],
+                    Some(x.id.clone()),
+                    None,
+                )]
+            } else {
+                vec![conflict_action(
+                    format!("dep-find-{}-{}", m.id, d),
+                    "Найти в каталоге",
+                    "open_catalog",
+                    Vec::new(),
+                    Some(d.clone()),
+                    Some(d.clone()),
+                )]
+            };
+            out.push(ModConflict {
+                id: format!("dep-{}-{}", m.id, d),
+                kind: if disabled.is_some() {
+                    "disabled_dep".into()
+                } else {
+                    "missing_dep".into()
+                },
+                severity: "error".into(),
+                title: format!("Не хватает зависимости: {d}"),
+                detail: format!(
+                    "Мод «{}» требует «{d}». {}",
+                    m.name,
+                    if disabled.is_some() {
+                        "Зависимость установлена, но отключена."
+                    } else {
+                        "Установите её на вкладке «Контент»."
+                    }
+                ),
+                actions,
+            });
+        }
+    }
+
+    // 4. Известные несовместимые пары.
+    const KNOWN: [(&str, &str, &str); 8] = [
+        ("optifine", "sodium", "OptiFine и Sodium конфликтуют"),
+        ("optifabric", "sodium", "OptiFabric и Sodium конфликтуют"),
+        ("optifine", "iris", "OptiFine и Iris конфликтуют"),
+        ("rubidium", "sodium", "Rubidium и Sodium — аналоги"),
+        ("embeddium", "sodium", "Embeddium и Sodium — аналоги"),
+        ("canary", "lithium", "Canary и Lithium — аналоги"),
+        ("radium", "lithium", "Radium и Lithium — аналоги"),
+        ("starlight", "phosphor", "Starlight и Phosphor — аналоги"),
+    ];
+    for (a, b, why) in KNOWN {
+        let ma = mods.iter().find(|m| norm_id(&m.id) == norm_id(a) && m.enabled);
+        let mb = mods.iter().find(|m| norm_id(&m.id) == norm_id(b) && m.enabled);
+        if let (Some(x), Some(y)) = (ma, mb) {
+            out.push(ModConflict {
+                id: format!("known-{a}-{b}"),
+                kind: "known".into(),
+                severity: "warn".into(),
+                title: why.to_string(),
+                detail: format!(
+                    "Одновременно включены «{}» и «{}». Оставьте один — иначе возможны краши.",
+                    x.name, y.name
+                ),
+                actions: vec![
+                    conflict_action(
+                        format!("known-disable-{a}"),
+                        &format!("Отключить «{}»", x.name),
+                        "disable",
+                        vec![x.file.clone()],
+                        Some(x.id.clone()),
+                        None,
+                    ),
+                    conflict_action(
+                        format!("known-disable-{b}"),
+                        &format!("Отключить «{}»", y.name),
+                        "disable",
+                        vec![y.file.clone()],
+                        Some(y.id.clone()),
+                        None,
+                    ),
+                ],
+            });
+        }
+    }
+
+    Ok(out)
+}
 
 fn norm_id(s: &str) -> String {
     s.chars()
@@ -1354,6 +1870,7 @@ mod tests {
             file: format!("mods/{id}.jar"),
             enabled: true,
             version: String::new(),
+            loader: None,
             depends: Vec::new(),
             provides: Vec::new(),
         }

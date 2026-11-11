@@ -85,6 +85,8 @@ pub enum AccountKind {
     Elyby,
     Littleskin,
     Offline,
+    /// Аккаунт, добавленный плагином (токен хранится в keyring).
+    Plugin,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -369,6 +371,8 @@ pub struct Config {
     pub mod_isolation_enabled: bool,
     /// Уровень защиты: "min" | "std" | "strict".
     pub mod_isolation_level: String,
+    /// Запретить игре читать и писать буфер обмена (может влиять на копирование в чате).
+    pub mod_isolation_clipboard: bool,
     /// Сканер модов перед запуском игры.
     pub scanner_enabled: bool,
     /// Режим сканера: "normal" | "strict" | "paranoid".
@@ -389,6 +393,27 @@ pub struct Config {
     pub ai_pack_source: String,
     /// Модель ИИ-сборки: пусто — первая доступная бесплатная.
     pub ai_pack_model: String,
+    /// Провайдер ИИ: opencode | openai | openrouter | groq | deepseek | gemini | anthropic | custom.
+    pub ai_provider: String,
+    /// API-ключ провайдера. В config.json хранится как есть, в webview — маска.
+    pub ai_api_key: String,
+    /// Свой base URL для провайдера `custom` (без `/chat/completions`).
+    pub ai_base_url: String,
+    /// Модель для чата/диагностики: пусто — дефолт провайдера.
+    pub ai_model: String,
+    /// Экспериментально: Python-плагины (`.aplug`) и архивы `.arbz`.
+    pub plugins_enabled: bool,
+    /// Настройки плагинов: id плагина → произвольный JSON.
+    #[serde(default)]
+    pub plugin_settings: BTreeMap<String, serde_json::Value>,
+    /// Экспериментально: движок тем (внешние `theme.json` + CSS).
+    pub theme_engine: bool,
+    /// Активная тема движка: id из `<data>/themes` или встроенная.
+    pub theme_pack: String,
+    /// Динамический визуал Minecraft: панорама и текстуры из jar версии.
+    pub mc_visual: bool,
+    /// Автоматическая проверка Fractureiser при запуске, установке модов и старте игры.
+    pub fractureiser_guard: bool,
     #[serde(default, deserialize_with = "de_anim")]
     pub anim: AnimConfig,
     #[serde(default, deserialize_with = "de_custom")]
@@ -427,6 +452,7 @@ impl Default for Config {
             hide_empty: false,
             mod_isolation_enabled: false,
             mod_isolation_level: "min".into(),
+            mod_isolation_clipboard: true,
             scanner_enabled: false,
             scanner_mode: "normal".into(),
             ai_scanner: false,
@@ -437,6 +463,16 @@ impl Default for Config {
             ai_pack_limit: 0,
             ai_pack_source: String::new(),
             ai_pack_model: String::new(),
+            ai_provider: "opencode".into(),
+            ai_api_key: String::new(),
+            ai_base_url: String::new(),
+            ai_model: String::new(),
+            plugins_enabled: false,
+            plugin_settings: BTreeMap::new(),
+            theme_engine: false,
+            theme_pack: String::new(),
+            mc_visual: false,
+            fractureiser_guard: true,
             anim: AnimConfig::default(),
             custom: CustomTheme::default(),
             moves: BTreeMap::new(),
@@ -491,6 +527,53 @@ impl Config {
         {
             self.ai_pack_model.clear();
         }
+        self.ai_provider = self.ai_provider.trim().to_ascii_lowercase();
+        if !matches!(
+            self.ai_provider.as_str(),
+            "opencode" | "openai" | "openrouter" | "groq" | "deepseek" | "gemini" | "anthropic" | "custom"
+        ) {
+            self.ai_provider = "opencode".into();
+        }
+        self.ai_api_key = self.ai_api_key.trim().chars().take(512).collect();
+        self.ai_base_url = self.ai_base_url.trim().chars().take(500).collect();
+        if !self.ai_base_url.is_empty() {
+            let u = self.ai_base_url.to_ascii_lowercase();
+            let local = u.starts_with("http://localhost")
+                || u.starts_with("http://127.0.0.1")
+                || u.starts_with("http://[::1]");
+            if !u.starts_with("https://") && !local {
+                self.ai_base_url.clear();
+            }
+        }
+        self.ai_model = self.ai_model.trim().chars().take(120).collect();
+        if !self
+            .ai_model
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "-_./:".contains(c))
+        {
+            self.ai_model.clear();
+        }
+        // Тема движка — короткий id: буквы, цифры, дефис, подчёркивание.
+        self.theme_pack = self
+            .theme_pack
+            .trim()
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+            .take(80)
+            .collect();
+        // Настройки плагинов: не даём разрастись config.json.
+        while self.plugin_settings.len() > 200 {
+            let Some(k) = self.plugin_settings.keys().next().cloned() else {
+                break;
+            };
+            self.plugin_settings.remove(&k);
+        }
+        self.plugin_settings.retain(|k, v| {
+            !k.is_empty()
+                && k.len() <= 120
+                && !v.is_null()
+                && serde_json::to_string(v).map(|s| s.len() <= 64 * 1024).unwrap_or(false)
+        });
         if !matches!(self.scanner_mode.as_str(), "normal" | "strict" | "paranoid") {
             self.scanner_mode = "normal".into();
         }

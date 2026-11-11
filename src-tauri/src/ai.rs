@@ -32,6 +32,7 @@ use serde_json::{json, Map, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::sync::RwLock;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const ZEN: &str = "https://opencode.ai/zen/v1";
@@ -45,6 +46,172 @@ const MAX_MODS: usize = 250;
 const CACHE_TTL: Duration = Duration::from_secs(30 * 60);
 /// Сколько моделей пробуем, прежде чем сдаться.
 const MAX_TRIES: usize = 5;
+
+/// Настройки ИИ-провайдера. Живут глобально, чтобы `chat()` мог их видеть без
+/// протаскивания `AppState` через все вызовы.
+#[derive(Clone, Debug, Default)]
+pub struct AiSettings {
+    pub provider: String,
+    pub api_key: String,
+    pub base_url: String,
+    pub model: String,
+}
+
+static AI_SETTINGS: Lazy<RwLock<AiSettings>> = Lazy::new(|| RwLock::new(AiSettings::default()));
+
+pub fn set_settings(cfg: &crate::models::Config) {
+    if let Ok(mut g) = AI_SETTINGS.write() {
+        *g = AiSettings {
+            provider: if cfg.ai_provider.trim().is_empty() {
+                "opencode".into()
+            } else {
+                cfg.ai_provider.clone()
+            },
+            api_key: cfg.ai_api_key.clone(),
+            base_url: cfg.ai_base_url.clone(),
+            model: cfg.ai_model.clone(),
+        };
+    }
+}
+
+fn settings() -> AiSettings {
+    AI_SETTINGS
+        .read()
+        .map(|g| g.clone())
+        .unwrap_or_else(|_| AiSettings {
+            provider: "opencode".into(),
+            ..Default::default()
+        })
+}
+
+/// Возвращает (URL, ключ, модель) для выбранного провайдера.
+fn provider_config(s: &AiSettings) -> (String, String, String) {
+    let key = s.api_key.trim().to_string();
+    let model = s.model.trim().to_string();
+    let custom = s.base_url.trim().trim_end_matches('/').to_string();
+    match s.provider.as_str() {
+        "openai" => (
+            "https://api.openai.com/v1/chat/completions".into(),
+            key,
+            if model.is_empty() { "gpt-4o-mini".into() } else { model },
+        ),
+        "openrouter" => (
+            "https://openrouter.ai/api/v1/chat/completions".into(),
+            key,
+            if model.is_empty() {
+                "openrouter/auto".into()
+            } else {
+                model
+            },
+        ),
+        "groq" => (
+            "https://api.groq.com/openai/v1/chat/completions".into(),
+            key,
+            if model.is_empty() {
+                "llama-3.3-70b-versatile".into()
+            } else {
+                model
+            },
+        ),
+        "deepseek" => (
+            "https://api.deepseek.com/v1/chat/completions".into(),
+            key,
+            if model.is_empty() { "deepseek-chat".into() } else { model },
+        ),
+        "gemini" => (
+            "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions".into(),
+            key,
+            if model.is_empty() {
+                "gemini-2.0-flash".into()
+            } else {
+                model
+            },
+        ),
+        "anthropic" => (
+            "https://api.anthropic.com/v1/messages".into(),
+            key,
+            if model.is_empty() {
+                "claude-3-5-sonnet-latest".into()
+            } else {
+                model
+            },
+        ),
+        "custom" => {
+            let base = custom;
+            (
+                if base.is_empty() {
+                    String::new()
+                } else {
+                    format!("{base}/chat/completions")
+                },
+                key,
+                if model.is_empty() { "gpt-4o-mini".into() } else { model },
+            )
+        }
+        _ => (String::new(), ZEN_KEY.into(), model),
+    }
+}
+
+/// Модели провайдера для выпадающего списка. Для OpenCode — free-каталог Zen,
+/// для остальных — `/models` (если доступен) или дефолт.
+pub async fn provider_models() -> Res<Vec<String>> {
+    let s = settings();
+    if s.provider == "opencode" || s.provider.is_empty() {
+        // Каталог Zen собирается в catalog(); здесь не должно быть рекурсии.
+        return Ok(Vec::new());
+    }
+    let (url, key, model) = provider_config(&s);
+    let mut out = Vec::new();
+    let base = if s.provider == "custom" && !s.base_url.trim().is_empty() {
+        format!("{}/models", s.base_url.trim().trim_end_matches('/'))
+    } else {
+        url.replace("/chat/completions", "/models")
+            .replace("/messages", "/models")
+    };
+    if base.is_empty() {
+        return Ok(vec![model]);
+    }
+    // Ключ может быть не нужен (локальный OpenAI-совместимый сервер),
+    // поэтому запрос отправляем всегда, а заголовок авторизации — только с ключом.
+    let mut req = HTTP.get(&base);
+    if !key.is_empty() {
+        req = if s.provider == "anthropic" {
+            req.header("x-api-key", &key)
+                .header("anthropic-version", "2023-06-01")
+        } else {
+            req.header("authorization", format!("Bearer {key}"))
+        };
+    }
+    if let Ok(r) = req.timeout(Duration::from_secs(12)).send().await {
+        if r.status().is_success() {
+            if let Ok(v) = r.json::<Value>().await {
+                if let Some(arr) = v.get("data").and_then(|x| x.as_array()) {
+                    for m in arr {
+                        if let Some(id) = m.get("id").and_then(|x| x.as_str()) {
+                            out.push(id.to_string());
+                        }
+                    }
+                } else if let Some(arr) = v.get("models").and_then(|x| x.as_array()) {
+                    for m in arr {
+                        if let Some(id) = m
+                            .get("id")
+                            .or_else(|| m.get("name"))
+                            .and_then(|x| x.as_str())
+                        {
+                            out.push(id.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if out.is_empty() {
+        out.push(model);
+    }
+    out.sort();
+    out.dedup();
+    Ok(out)
+}
 
 /// Категории причины — ровно этот список уходит в системный промпт.
 const CAUSES: [&str; 10] = [
@@ -173,6 +340,11 @@ pub(crate) async fn models() -> Res<Vec<String>> {
 }
 
 async fn catalog() -> Res<(Vec<String>, bool)> {
+    let s = settings();
+    if !s.provider.is_empty() && s.provider != "opencode" {
+        let models = provider_models().await?;
+        return Ok((models, false));
+    }
     if let Ok(g) = CATALOG.lock() {
         if let Some(c) = g.as_ref() {
             if c.at.elapsed() < CACHE_TTL {
@@ -451,39 +623,96 @@ async fn chat(
     max_tokens: u32,
     temperature: f64,
 ) -> Result<(String, Option<u64>), (bool, String)> {
+    let s = settings();
+    let is_zen = s.provider.is_empty() || s.provider == "opencode";
+    let is_anthropic = s.provider == "anthropic";
+    let (url, key, default_model) = provider_config(&s);
+    let model = if model.trim().is_empty() {
+        default_model.as_str()
+    } else {
+        model
+    };
     let ses = b62_id("ses_");
-    let req = b62_id("msg_");
+    let req_id = b62_id("msg_");
 
     let mut body = Map::new();
     body.insert("model".into(), json!(model));
-    body.insert(
-        "messages".into(),
-        json!([
-            {"role": "system", "content": system},
-            {"role": "user", "content": user}
-        ]),
-    );
-    body.insert("stream".into(), json!(true));
-    body.insert("tools".into(), tools());
-    body.insert("tool_choice".into(), json!("none"));
-    body.insert("max_tokens".into(), json!(max_tokens));
-    body.insert("temperature".into(), json!(temperature));
-    // DeepSeek — reasoning-модель: без этого весь бюджет уходит в размышления.
-    if model.to_ascii_lowercase().contains("deepseek") {
-        body.insert("reasoning_effort".into(), json!("none"));
+    if is_anthropic {
+        body.insert("system".into(), json!(system));
+        body.insert(
+            "messages".into(),
+            json!([{"role": "user", "content": user}]),
+        );
+        body.insert("max_tokens".into(), json!(max_tokens));
+        body.insert("temperature".into(), json!(temperature));
+    } else {
+        body.insert(
+            "messages".into(),
+            json!([
+                {"role": "system", "content": system},
+                {"role": "user", "content": user}
+            ]),
+        );
+        body.insert("stream".into(), json!(true));
+        if is_zen {
+            body.insert("tools".into(), tools());
+            body.insert("tool_choice".into(), json!("none"));
+        }
+        body.insert("max_tokens".into(), json!(max_tokens));
+        body.insert("temperature".into(), json!(temperature));
+        // DeepSeek в Zen — reasoning-модель: без этого весь бюджет уходит в размышления.
+        // Прямому API DeepSeek этот параметр не отправляем.
+        if is_zen && model.to_ascii_lowercase().contains("deepseek") {
+            body.insert("reasoning_effort".into(), json!("none"));
+        }
     }
 
-    let res = HTTP
-        .post(format!("{ZEN}/chat/completions"))
-        .header("authorization", format!("Bearer {ZEN_KEY}"))
-        .header("x-opencode-client", "cli")
-        .header("x-opencode-project", "global")
-        .header("x-opencode-session", &ses)
-        .header("x-opencode-session-id", &ses)
-        .header("x-session-affinity", &ses)
-        .header("x-session-id", &ses)
-        .header("x-opencode-request", &req)
-        .header("accept", "text/event-stream")
+    let endpoint = if is_zen {
+        format!("{ZEN}/chat/completions")
+    } else {
+        url
+    };
+    if endpoint.is_empty() {
+        return Err((false, "Укажите Base URL в настройках ИИ".into()));
+    }
+    let mut request = HTTP.post(endpoint);
+    if is_zen {
+        request = request
+            .header("authorization", format!("Bearer {ZEN_KEY}"))
+            .header("x-opencode-client", "cli")
+            .header("x-opencode-project", "global")
+            .header("x-opencode-session", &ses)
+            .header("x-opencode-session-id", &ses)
+            .header("x-session-affinity", &ses)
+            .header("x-session-id", &ses)
+            .header("x-opencode-request", &req_id)
+            .header("accept", "text/event-stream");
+    } else {
+        if !key.is_empty() {
+            if is_anthropic {
+                request = request
+                    .header("x-api-key", key.clone())
+                    .header("anthropic-version", "2023-06-01");
+            } else {
+                request = request.header("authorization", format!("Bearer {key}"));
+            }
+        }
+        if s.provider == "openrouter" {
+            request = request
+                .header("HTTP-Referer", "https://github.com/arbuzlauncher/arbuz-launcher")
+                .header("X-Title", "Arbuz Launcher");
+        }
+        request = request.header(
+            "accept",
+            if is_anthropic {
+                "application/json"
+            } else {
+                "text/event-stream"
+            },
+        );
+    }
+
+    let res = request
         .timeout(Duration::from_secs(90))
         .json(&Value::Object(body))
         .send()
@@ -507,6 +736,18 @@ async fn chat(
     // Некоторые модели/прокси могут ответить обычным JSON вместо SSE.
     if ctype.contains("application/json") {
         let v: Value = res.json().await.map_err(|e| (true, format!("json: {e}")))?;
+        if is_anthropic {
+            let text = v["content"][0]["text"]
+                .as_str()
+                .unwrap_or("")
+                .to_string();
+            let tokens = v["usage"]["input_tokens"]
+                .as_u64()
+                .zip(v["usage"]["output_tokens"].as_u64())
+                .map(|(a, b)| a + b)
+                .or_else(|| v["usage"]["total_tokens"].as_u64());
+            return Ok((text, tokens));
+        }
         let text = v["choices"][0]["message"]["content"]
             .as_str()
             .unwrap_or("")
@@ -579,8 +820,9 @@ async fn ask(model: &str, system: &str, user: &str) -> Result<AiDiagnosis, (bool
 
 /// Один ответ модели по произвольному промпту — сырой текст плюс имя модели.
 ///
-/// Перебирает free-модели Zen в том же порядке, что и разбор крашей, и
-/// возвращает первый удачный ответ. Используется сборщиком сборок.
+/// Для OpenCode перебирает free-модели Zen в том же порядке, что и разбор
+/// крашей, и возвращает первый удачный ответ. Для внешнего провайдера делает
+/// один запрос выбранной моделью, чтобы не тратить деньги на перебор.
 pub(crate) async fn ask_text(
     system: &str,
     user: &str,
@@ -588,13 +830,44 @@ pub(crate) async fn ask_text(
     temperature: f64,
     prefer: Option<&str>,
 ) -> Res<(String, String)> {
+    let s = settings();
+    // Для внешнего провайдера не перебираем модели: это может стоить денег.
+    // Берём выбранную модель, затем модель из настроек, затем дефолт.
+    if !s.provider.is_empty() && s.provider != "opencode" {
+        let (_, _, default_model) = provider_config(&s);
+        let model = prefer
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .map(str::to_string)
+            .or_else(|| {
+                let m = s.model.trim();
+                if m.is_empty() {
+                    None
+                } else {
+                    Some(m.to_string())
+                }
+            })
+            .unwrap_or(default_model);
+        let (text, _) = chat(&model, system, user, max_tokens, temperature)
+            .await
+            .map_err(|(_, m)| AppError::Msg(format!("ИИ не ответил: {m}")))?;
+        if text.trim().is_empty() {
+            return err("ИИ вернул пустой ответ");
+        }
+        return Ok((model, text));
+    }
+
     let (models, ru) = catalog().await?;
     let mut ordered = order(&models, ru);
     // Выбранную в интерфейсе модель пробуем первой, если она ещё доступна.
     if let Some(pick) = prefer.map(str::trim).filter(|p| !p.is_empty()) {
-        if let Some(pos) = ordered.iter().position(|m| m == pick) {
-            let m = ordered.remove(pos);
-            ordered.insert(0, m);
+        match ordered.iter().position(|m| m == pick) {
+            Some(pos) => {
+                let m = ordered.remove(pos);
+                ordered.insert(0, m);
+            }
+            // Модели может не быть в каталоге (например, новая) — всё равно пробуем.
+            None => ordered.insert(0, pick.to_string()),
         }
     }
     let mut errors: Vec<String> = Vec::new();
@@ -622,7 +895,7 @@ pub(crate) async fn ask_text(
         .chars()
         .take(400)
         .collect();
-    err(format!("Бесплатные модели не ответили. {tail}"))
+    err(format!("Модели не ответили. {tail}"))
 }
 
 // ---------------------------------------------------------------------------
@@ -872,8 +1145,20 @@ pub async fn diagnose(id: &str, lang: &str, console: &str) -> Res<AiDiagnosis> {
     let user = build_user(&inst, &diag, &mods, &log, &console);
     let system = system_prompt(lang);
 
-    let (models, ru) = catalog().await?;
-    let ordered = order(&models, ru);
+    let s = settings();
+    let ordered = if s.provider.is_empty() || s.provider == "opencode" {
+        let (models, ru) = catalog().await?;
+        order(&models, ru)
+    } else {
+        // Внешний провайдер: один запрос выбранной/дефолтной моделью.
+        let (_, _, default_model) = provider_config(&s);
+        let model = if s.model.trim().is_empty() {
+            default_model
+        } else {
+            s.model.trim().to_string()
+        };
+        vec![model]
+    };
     let mut errors: Vec<String> = Vec::new();
 
     for model in ordered.iter().take(MAX_TRIES) {
@@ -894,9 +1179,7 @@ pub async fn diagnose(id: &str, lang: &str, console: &str) -> Res<AiDiagnosis> {
         .collect::<Vec<_>>()
         .join(" | ");
     let tail: String = tail.chars().take(400).collect();
-    err(format!(
-        "Бесплатные модели не ответили. {tail}"
-    ))
+    err(format!("Модели не ответили. {tail}"))
 }
 
 // ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ import { flushConfig, useStore } from '../store';
 export function Titlebar() {
   const win = getCurrentWindow();
   const view = useStore((s) => s.view);
+  const pluginView = useStore((s) => s.pluginView);
   const canBack = useStore((s) => s.hp > 0);
   const canFwd = useStore((s) => s.hp < s.hist.length - 1);
   const t = useT();
@@ -17,12 +18,14 @@ export function Titlebar() {
           ? t('Каталог')
           : view === 'accounts'
             ? t('Аккаунты')
-            : view === 'app'
-              ? t('Настройки')
-              : t('Настройки');
+            : view === 'plugin'
+              ? pluginView?.title ?? t('Плагин')
+              : view === 'app'
+                ? t('Настройки')
+                : t('Настройки');
 
   return (
-    <div id="tb" data-tauri-drag-region>
+    <div id="tb" data-plugin-el="titlebar" data-tauri-drag-region>
       <div className="tb-brand">
         <img src="/launcher.png" alt="" />
         <b>Arbuz Launcher</b>
@@ -30,6 +33,7 @@ export function Titlebar() {
       <div className="tb-mid">
         <button
           className="tb-icobtn"
+          data-plugin-el="titlebar.back"
           aria-label={t('Назад')}
           disabled={!canBack}
           onClick={() => useStore.getState().back()}
@@ -40,6 +44,7 @@ export function Titlebar() {
         </button>
         <button
           className="tb-icobtn"
+          data-plugin-el="titlebar.forward"
           aria-label={t('Вперёд')}
           disabled={!canFwd}
           onClick={() => useStore.getState().forward()}
@@ -48,7 +53,7 @@ export function Titlebar() {
             <path d="M5 12h14M13 6l6 6-6 6" />
           </svg>
         </button>
-        <span className="tb-title">{title}</span>
+        <span className="tb-title" data-plugin-el="titlebar.title">{title}</span>
       </div>
       <div className="tb-win">
         <button aria-label="Minimize" onClick={() => void win.minimize()}>

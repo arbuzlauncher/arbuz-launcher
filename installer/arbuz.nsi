@@ -472,6 +472,11 @@ Section "Install"
   files_free:
 
   File "/oname=${APP_EXE}" "${ROOT}\src-tauri\target\release\${APP_EXE}"
+  !if /FileExists "${ROOT}\src-tauri\python-runtime\python3.dll"
+    File "/oname=python3.dll" "${ROOT}\src-tauri\python-runtime\python3.dll"
+    File "/oname=python312.dll" "${ROOT}\src-tauri\python-runtime\python312.dll"
+    File "/oname=python312.zip" "${ROOT}\src-tauri\python-runtime\python312.zip"
+  !endif
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
   ${If} $StartMenuChk == 1
@@ -501,6 +506,9 @@ SectionEnd
 
 Section "Uninstall"
   Delete "$INSTDIR\${APP_EXE}"
+  Delete "$INSTDIR\python3.dll"
+  Delete "$INSTDIR\python312.dll"
+  Delete "$INSTDIR\python312.zip"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
 

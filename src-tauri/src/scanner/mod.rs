@@ -15,6 +15,7 @@ pub(crate) mod classindex;
 pub(crate) mod config;
 pub(crate) mod decode;
 pub(crate) mod evidence;
+pub(crate) mod fractureiser;
 pub(crate) mod lookup;
 pub(crate) mod malware_db;
 pub(crate) mod quarantine;

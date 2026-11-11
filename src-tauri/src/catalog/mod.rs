@@ -321,6 +321,22 @@ pub async fn install(
 ) -> Res<()> {
     let inst: Instance = store::read_instance(instance_id).await?;
 
+    let hook = crate::plugins::call_hook(
+        "mod.download.before",
+        &serde_json::json!({
+            "instanceId": instance_id,
+            "source": source,
+            "projectId": project_id,
+            "kind": kind,
+        }),
+    );
+    if hook
+        .iter()
+        .any(|r| r.result.get("cancel").and_then(|v| v.as_bool()).unwrap_or(false))
+    {
+        return err("Загрузка отменена плагином");
+    }
+
     // Мод без загрузчика не заработает: в ванильном профиле его некуда ставить.
     if kind == "mod" && loader_slug(inst.loader).is_none() {
         return err(
@@ -336,6 +352,18 @@ pub async fn install(
         "curseforge" => curseforge::install(app, state, &inst, project_id, kind, &dir, &mut meta).await?,
         _ => return err("Неизвестный источник"),
     }
+
+    // Автоматическая проверка Fractureiser сразу после скачивания.
+    crate::scanner::fractureiser::guard_profile(instance_id).await?;
+    let _ = crate::plugins::call_hook(
+        "mod.download.after",
+        &serde_json::json!({
+            "instanceId": instance_id,
+            "source": source,
+            "projectId": project_id,
+            "kind": kind,
+        }),
+    );
 
     content::save_meta(instance_id, &meta).await
 }

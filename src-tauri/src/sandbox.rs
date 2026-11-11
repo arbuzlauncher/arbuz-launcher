@@ -11,10 +11,12 @@
 //! - `strict`: HOME/APPDATA/LOCALAPPDATA/TEMP перенаправляются в
 //!   `instances/<id>/container`, чтобы мод не видел реальные пути профиля.
 //!
-//! Буфер обмена **не ограничивается**. UI-ограничения job-объекта
-//! (`HANDLES`, `SYSTEMPARAMETERS`, `DISPLAYSETTINGS`, `GLOBALATOMS`,
-//! `DESKTOP`, clipboard) не используются: они ломают создание окна и
-//! OpenGL-контекста, из-за чего Sodium и шейдеры не запускаются.
+//! Буфер обмена по умолчанию **не ограничивается**. Остальные UI-ограничения
+//! job-объекта (`HANDLES`, `SYSTEMPARAMETERS`, `DISPLAYSETTINGS`,
+//! `GLOBALATOMS`, `DESKTOP`) не используются: они ломают создание окна и
+//! OpenGL-контекста, из-за чего Sodium и шейдеры не запускаются. Опционально
+//! (`mod_isolation_clipboard`) включается только запрет чтения/записи буфера
+//! обмена — он не влияет на окно и рендер.
 //!
 //! Дополнительно файлы лаунчера (`config.json`, `accounts.json`) получают
 //! метку medium с `NO_READ_UP`: low-процесс игры не может их прочитать.
@@ -66,10 +68,16 @@ struct ExtLimit {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Default, Clone, Copy)]
 struct SidAndAttributes {
     sid: *mut c_void,
     attributes: Dword,
+}
+
+#[repr(C)]
+#[derive(Default, Clone, Copy)]
+struct UiRestrictions {
+    ui_restrictions: Dword,
 }
 
 #[repr(C)]
@@ -110,9 +118,12 @@ extern "system" {
 }
 
 const JOB_OBJECT_EXTENDED_LIMIT_INFORMATION: Dword = 9;
+const JOB_OBJECT_BASIC_UI_RESTRICTIONS: Dword = 4;
 const JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE: Dword = 0x2000;
 const JOB_OBJECT_LIMIT_DIE_ON_UNHANDLED_EXCEPTION: Dword = 0x400;
 const JOB_OBJECT_LIMIT_ACTIVE_PROCESS: Dword = 0x0000_0008;
+const JOB_OBJECT_UILIMIT_READCLIPBOARD: Dword = 0x0000_0002;
+const JOB_OBJECT_UILIMIT_WRITECLIPBOARD: Dword = 0x0000_0004;
 
 const TOKEN_ADJUST_DEFAULT: Dword = 0x0080;
 const TOKEN_QUERY: Dword = 0x0008;
@@ -164,12 +175,12 @@ pub fn prepare(level: &str, id: &str) -> bool {
 ///
 /// `std`/`strict` дополнительно запрещают дочерние процессы. Токен понижаем
 /// на всех уровнях: иначе `min`/`std` оставались бы обычным medium-процессом.
-pub fn apply(handle: Handle, level: &str, ready: bool) {
+pub fn apply(handle: Handle, level: &str, ready: bool, clipboard: bool) {
     if handle.is_null() || level == OFF {
         return;
     }
     unsafe {
-        if let Some(job) = make_job(level) {
+        if let Some(job) = make_job(level, clipboard) {
             let _ = AssignProcessToJobObject(job, handle);
         }
         if ready {
@@ -178,7 +189,7 @@ pub fn apply(handle: Handle, level: &str, ready: bool) {
     }
 }
 
-unsafe fn make_job(level: &str) -> Option<Handle> {
+unsafe fn make_job(level: &str, clipboard: bool) -> Option<Handle> {
     let job = CreateJobObjectW(std::ptr::null_mut(), std::ptr::null());
     if job.is_null() {
         return None;
@@ -197,6 +208,18 @@ unsafe fn make_job(level: &str) -> Option<Handle> {
         &mut info as *mut _ as *mut c_void,
         std::mem::size_of::<ExtLimit>() as Dword,
     );
+    // Только буфер обмена: остальные UI-ограничения ломают окно и OpenGL.
+    if clipboard {
+        let mut ui = UiRestrictions {
+            ui_restrictions: JOB_OBJECT_UILIMIT_READCLIPBOARD | JOB_OBJECT_UILIMIT_WRITECLIPBOARD,
+        };
+        SetInformationJobObject(
+            job,
+            JOB_OBJECT_BASIC_UI_RESTRICTIONS,
+            &mut ui as *mut _ as *mut c_void,
+            std::mem::size_of::<UiRestrictions>() as Dword,
+        );
+    }
     Some(job)
 }
 
